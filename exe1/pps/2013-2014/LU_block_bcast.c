@@ -19,6 +19,8 @@ int main (int argc, char * argv[]) {
         //Allocate and init matrix A
         A=malloc2D(X,Y);
         init2D(A,X,Y);
+        char * name="initial_block_bcast";
+        print2DFile(A,X,Y,name);
     }
 
     //Extend dimension X with ghost cells if X%size!=0
@@ -50,26 +52,38 @@ int main (int argc, char * argv[]) {
      The matrix A is distributed in contiguous blocks to the local matrices localA
      You have to use collective communication routines.
      Don't forget the timers for computation and communication!
-        
-    ******************************************************************************/
+	
+	 ******************************************************************************/
+	double * temp = malloc(y*sizeof(double));
+	double l;
+	for (k = 0; k < X - 1; k++) {
+		printf("rank = %d, k=%d\n",rank, k);
+		// find which rank must send and copy the correct row and size
+		if (rank == (k / size)){
+			printf("rank=%d\n", rank);
+			 //memcpy(temp, &localA[k%size][k], (y-k)*sizeof(double));   // this is an optimization
+			 memcpy(temp, &localA[k%size][0], y*sizeof(double));
+			 }
+		//send
+		MPI_Bcast(temp, y-k, MPI_DOUBLE, k/size, MPI_COMM_WORLD);
+		
+		//if done with rows stop
+		if (k>rank*size)
+			goto OUT;
 
-    /*
-
-
-
-
-
-    Fill your code here
-
-
-
-
-
-    */
-
+		for (i = (k%size); i < x; i++){
+			l = localA[i][k%size] / temp[k];
+			if ((rank == (k/size)) && (i == (k%size)))
+				continue;
+			for (j = k + 1; j < y; j++)
+				localA[i][j] = localA[i][j] -l*temp[j];
+		}
+		OUT:
+		MPI_Barrier(MPI_COMM_WORLD);
+	}
     gettimeofday(&tf,NULL);
     total_time=tf.tv_sec-ts.tv_sec+(tf.tv_usec-ts.tv_usec)*0.000001;
-
+	
 
     //Gather local matrices back to the global matrix
     if (rank==0) {
