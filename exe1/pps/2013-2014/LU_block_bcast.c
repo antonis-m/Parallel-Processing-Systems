@@ -70,14 +70,23 @@ int main (int argc, char * argv[]) {
 		if (k>=((rank+1)*size))
 			goto OUT;
 
-		for (i = k%size; i < x; i++){
-			l = localA[i][k] / temp[0];
-			if ((rank == (k/size)) && (i == (k%size)))
-				continue;
-			for (j = k+1; j < y; j++) {
-				printf("rank = %d i = %d j = %d\n", rank, i, j);
-				localA[i][j] = localA[i][j] -l*temp[j];
-		}}
+	
+		if (rank == (k/size)) 
+			for (i = k%size+1; i < x; i++){
+				l = localA[i][k] / temp[k];
+				for (j = k+1; j < y; j++) {
+					printf("rank = %d i = %d j = %d\n", rank, i, j);
+					localA[i][j] = localA[i][j] -l*temp[j];
+				}
+			}
+		else 
+			for (i = 0; i < x; i++){
+				l = localA[i][k] / temp[k];
+				for (j = k+1; j < y; j++) {
+					printf("rank = %d i = %d j = %d\n", rank, i, j);
+					localA[i][j] = localA[i][j] -l*temp[j];
+				}
+			}
 		OUT:
 		MPI_Barrier(MPI_COMM_WORLD);
 	}
