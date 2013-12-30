@@ -56,6 +56,9 @@ int main (int argc, char * argv[]) {
 	 ******************************************************************************/
 	double * temp = malloc(y*sizeof(double));
 	double l;
+	computation_time = 0;
+	communication_time = 0;
+
 	for (k = 0; k < X - 1; k++) {
 		// find which rank must send and copy the correct row and size
 		if (rank == (k / size)){
@@ -64,13 +67,16 @@ int main (int argc, char * argv[]) {
 			 //memcpy(temp, &localA[k%size][0], y*sizeof(double));
 			 }
 		//send
+		gettimeofday(&comms, NULL);
 		MPI_Bcast(temp, y, MPI_DOUBLE, k/size, MPI_COMM_WORLD);
-		
+		gettimeofday(&commf, NULL);
+		communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
+
 		//if done with rows stop
 		if (k>=((rank+1)*size))
 			goto OUT;
 
-	
+		gettimeofday(&comps, NULL);	
 		if (rank == (k/size)) 
 			for (i = k%size+1; i < x; i++){
 				l = localA[i][k] / temp[k];
@@ -87,6 +93,8 @@ int main (int argc, char * argv[]) {
 					localA[i][j] = localA[i][j] -l*temp[j];
 				}
 			}
+		gettimeofday(&compf, NULL);	
+		computation_time+=compf.tv_sec-comps.tv_sec+(compf.tv_usec-comps.tv_usec)*0.000001;
 		OUT:
 		MPI_Barrier(MPI_COMM_WORLD);
 	}
