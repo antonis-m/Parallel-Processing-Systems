@@ -57,7 +57,6 @@ int main (int argc, char * argv[]) {
 	double * temp = malloc(y*sizeof(double));
 	double l;
 	for (k = 0; k < X - 1; k++) {
-		printf("rank = %d, k=%d\n",rank, k);
 		// find which rank must send and copy the correct row and size
 		if (rank == (k / size)){
 			printf("rank=%d\n", rank);
@@ -65,19 +64,20 @@ int main (int argc, char * argv[]) {
 			 memcpy(temp, &localA[k%size][0], y*sizeof(double));
 			 }
 		//send
-		MPI_Bcast(temp, y-k, MPI_DOUBLE, k/size, MPI_COMM_WORLD);
+		MPI_Bcast(temp, y, MPI_DOUBLE, k/size, MPI_COMM_WORLD);
 		
 		//if done with rows stop
-		if (k>rank*size)
+		if (k>=((rank+1)*size))
 			goto OUT;
 
-		for (i = (k%size); i < x; i++){
-			l = localA[i][k%size] / temp[k];
+		for (i = k%size; i < x; i++){
+			l = localA[i][k] / temp[0];
 			if ((rank == (k/size)) && (i == (k%size)))
 				continue;
-			for (j = k + 1; j < y; j++)
+			for (j = k+1; j < y; j++) {
+				printf("rank = %d i = %d j = %d\n", rank, i, j);
 				localA[i][j] = localA[i][j] -l*temp[j];
-		}
+		}}
 		OUT:
 		MPI_Barrier(MPI_COMM_WORLD);
 	}
