@@ -60,8 +60,8 @@ int main (int argc, char * argv[]) {
 		// find which rank must send and copy the correct row and size
 		if (rank == (k / size)){
 			printf("rank=%d\n", rank);
-			 //memcpy(temp, &localA[k%size][k], (y-k)*sizeof(double));   // this is an optimization
-			 memcpy(temp, &localA[k%size][0], y*sizeof(double));
+			 memcpy(&temp[k], &localA[k%size][k], (y-k)*sizeof(double));   // this is an optimization
+			 //memcpy(temp, &localA[k%size][0], y*sizeof(double));
 			 }
 		//send
 		MPI_Bcast(temp, y, MPI_DOUBLE, k/size, MPI_COMM_WORLD);
