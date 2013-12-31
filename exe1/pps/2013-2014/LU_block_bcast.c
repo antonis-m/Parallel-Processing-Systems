@@ -68,7 +68,7 @@ int main (int argc, char * argv[]) {
 			 }
 		//send
 		gettimeofday(&comms, NULL);
-		MPI_Bcast(temp, y, MPI_DOUBLE, k/size, MPI_COMM_WORLD);
+		MPI_Bcast(&temp[k], y-k, MPI_DOUBLE, k/size, MPI_COMM_WORLD);
 		gettimeofday(&commf, NULL);
 		communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
 
