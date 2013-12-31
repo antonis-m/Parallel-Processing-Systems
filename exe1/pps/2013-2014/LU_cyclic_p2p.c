@@ -52,19 +52,48 @@ int main (int argc, char * argv[]) {
         
     ******************************************************************************/
 
-    /*
+	double * temp = malloc(y*sizeof(double));
+	double l;
+	computation_time = 0;
+	communication_time = 0;
+	MPI_Status status; 
 
+	for (k = 0; k < X - 1; k++) {
+		// find which rank must send 
+		if (rank == (k % size)){
+			printf("rank=%d\n", rank);
+			//memcpy(&temp[k], &localA[k%size][k], (y-k)*sizeof(double));   // this is an optimization
+			for (i=0;i<k%size;i++)
+				MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
+			for (i=k%size+1;i<size;i++)
+				MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
+		}
+		else {
+			MPI_Recv(&temp[k], y-k, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status); 
+		}
 
-
-
-
-    Fill your code here
-
-
-
-
-
-    */
+		/*	
+		if (rank == (k%size)) 
+			for (i = k/size+1; i < x; i++){
+				l = localA[i][k] / temp[k];
+				for (j = k+1; j < y; j++) {
+					printf("rank = %d i = %d j = %d\n", rank, i, j);
+					localA[i][j] = localA[i][j] -l*temp[j];
+				}
+			}
+		else 
+			for (i = 0; i < x; i++){
+				l = localA[i][k] / temp[k];
+				for (j = k+1; j < y; j++) {
+					printf("rank = %d i = %d j = %d\n", rank, i, j);
+					localA[i][j] = localA[i][j] -l*temp[j];
+				}
+			}
+		computation_time+=compf.tv_sec-comps.tv_sec+(compf.tv_usec-comps.tv_usec)*0.000001;
+		OUT:
+		MPI_Barrier(MPI_COMM_WORLD);
+	*/
+	}
 
     gettimeofday(&tf,NULL);
     total_time=tf.tv_sec-ts.tv_sec+(tf.tv_usec-ts.tv_usec)*0.000001;
