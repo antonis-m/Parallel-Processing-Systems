@@ -3,6 +3,7 @@
 #include <mpi.h>
 #include <sys/time.h>
 #include "utils.h"
+#include <string.h>
 
 
 int main (int argc, char * argv[]) {
@@ -12,14 +13,15 @@ int main (int argc, char * argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 
     int X,Y,x,y,X_ext,i,j,k;    
-    double **A, **localA;
+    double **A;
+	double **localA;
     X=atoi(argv[1]);
     Y=X;
     if (rank==0) {
         //Allocate and init matrix A
         A=malloc2D(X,Y);
         init2D(A,X,Y);
-    }
+	}
 
     //Extend dimension X with ghost cells if X%size!=0
     if (X%size!=0)
@@ -30,80 +32,94 @@ int main (int argc, char * argv[]) {
     //Local dimensions x,y
     x=X_ext/size;
     y=Y;
-
     //Allocate local matrix and scatter global matrix
     localA=malloc2D(x,y);
-    for (i=0;i<x;i++)
-        MPI_Scatter(&A[i*size][0],Y,MPI_DOUBLE,&localA[i][0],y,MPI_DOUBLE,0,MPI_COMM_WORLD);
-    if (rank==0)
+	double * idx;
+	if (rank==0)
+		idx = &A[0][0];
+
+	for (i=0;i<x;i++)
+        //MPI_Scatter(&A[i*size][0],Y,MPI_DOUBLE,&localA[i][0],y,MPI_DOUBLE,0,MPI_COMM_WORLD);
+        MPI_Scatter(idx+i*size*Y,Y,MPI_DOUBLE,&localA[i][0],y,MPI_DOUBLE,0,MPI_COMM_WORLD);
+	
+	if (rank==0)
         free2D(A,X,Y);
- 
-    //Timers   
+	//Timers   
     struct timeval ts,tf,comps,compf,comms,commf;
     double total_time,computation_time,communication_time;
-
 	MPI_Barrier(MPI_COMM_WORLD);
     gettimeofday(&ts,NULL);        
-
     /******************************************************************************
      The matrix A is distributed in a round-robin fashion to the local matrices localA
      You have to use point-to-point communication routines.
      Don't forget the timers for computation and communication!
         
     ******************************************************************************/
-
-	double * temp = malloc(y*sizeof(double));
-	double l;
-	computation_time = 0;
-	communication_time = 0;
-	MPI_Status status; 
-
-	for (k = 0; k < X - 1; k++) {
-		// find which rank must send 
+	
+	
+	MPI_Status status;
+	double * temp = (double *)malloc(y*sizeof(double));
+	int l;
+	double m;
+	for (k=0;k<X-1;k++) {
 		if (rank == (k % size)){
-			printf("rank=%d\n", rank);
-			//memcpy(&temp[k], &localA[k%size][k], (y-k)*sizeof(double));   // this is an optimization
-			for (i=0;i<k%size;i++)
+			for (i=0;i<(k%size);i++){
 				MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
-			for (i=k%size+1;i<size;i++)
-				MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
+				//MPI_Send(&localA[k/x][0], y, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
+			}
+			for (i=k%size+1;i<size;i++){
+				MPI_Send(&localA[k/x][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
+				//MPI_Send(&localA[k/x][0], y, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
+			} 
 		}
 		else {
 			MPI_Recv(&temp[k], y-k, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status); 
+			//MPI_Recv(&temp[0], y, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status); 
 		}
-
-		/*	
-		if (rank == (k%size)) 
+		
+	
+		if (rank < (k%size)){			
 			for (i = k/size+1; i < x; i++){
-				l = localA[i][k] / temp[k];
+					m = localA[i][k] / temp[k];
+					for (j = k+1; j < y; j++) {
+						printf("rank = %d i = %d j = %d\n", rank, i, j);
+						localA[i][j] = localA[i][j] -m*temp[j];
+					}
+				}
+		}
+		else if (rank == (k%size)){ 
+			for (i = k/size+1; i < x; i++){
+				m = localA[i][k] / localA[k/size][k];
 				for (j = k+1; j < y; j++) {
 					printf("rank = %d i = %d j = %d\n", rank, i, j);
-					localA[i][j] = localA[i][j] -l*temp[j];
+					localA[i][j] = localA[i][j] -m*localA[k/size][j];
 				}
 			}
-		else 
-			for (i = 0; i < x; i++){
-				l = localA[i][k] / temp[k];
+		}
+		else {
+			for (i = k/size; i < x; i++){
+				m = (localA[i][k]/temp[k]);	
 				for (j = k+1; j < y; j++) {
 					printf("rank = %d i = %d j = %d\n", rank, i, j);
-					localA[i][j] = localA[i][j] -l*temp[j];
+					localA[i][j] = localA[i][j] - m*temp[j];
 				}
 			}
-		computation_time+=compf.tv_sec-comps.tv_sec+(compf.tv_usec-comps.tv_usec)*0.000001;
-		OUT:
-		MPI_Barrier(MPI_COMM_WORLD);
-	*/
+		}
+	MPI_Barrier(MPI_COMM_WORLD);
 	}
-
-    gettimeofday(&tf,NULL);
+	gettimeofday(&tf,NULL);
     total_time=tf.tv_sec-ts.tv_sec+(tf.tv_usec-ts.tv_usec)*0.000001;
 
 
     //Gather local matrices back to the global matrix
-    if (rank==0)
+   if (rank==0)
         A=malloc2D(X,Y);
+	if (rank == 0)
+		idx = &A[0][0];
+
     for (i=0;i<x;i++)
-        MPI_Gather(&localA[i][0],y,MPI_DOUBLE,&A[i*size][0],Y,MPI_DOUBLE,0,MPI_COMM_WORLD);
+       // MPI_Gather(&localA[i][0],y,MPI_DOUBLE,&A[i*size][0],Y,MPI_DOUBLE,0,MPI_COMM_WORLD);
+        MPI_Gather(&localA[i][0],y,MPI_DOUBLE,idx+i*size*Y,Y,MPI_DOUBLE,0,MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
     
     double avg_total,avg_comp,avg_comm,max_total,max_comp,max_comm;
@@ -129,7 +145,6 @@ int main (int argc, char * argv[]) {
         char * filename="output_cyclic_p2p";
         print2DFile(A,X,Y,filename);
     }
-
 
     MPI_Finalize();
 
