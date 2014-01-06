@@ -61,9 +61,9 @@ int main (int argc, char * argv[]) {
 
 	for (k = 0; k < X - 1; k++) {
 		// find which rank must send and copy the correct row and size
-		if (rank == (k / size)){
+		if (rank == (k / x)){
 			printf("rank=%d\n", rank);
-			 memcpy(&temp[k], &localA[k%size][k], (y-k)*sizeof(double));   // this is an optimization
+			 memcpy(&temp[k], &localA[k%x][k], (y-k)*sizeof(double));   // this is an optimization
 			 //memcpy(temp, &localA[k%size][0], y*sizeof(double));
 			 }
 		//send
@@ -77,7 +77,7 @@ int main (int argc, char * argv[]) {
 			goto OUT;
 
 		gettimeofday(&comps, NULL);	
-		if (rank == (k/size)) 
+		if (rank == (k/x)) 
 			for (i = k%size+1; i < x; i++){
 				l = localA[i][k] / temp[k];
 				for (j = k+1; j < y; j++) {
