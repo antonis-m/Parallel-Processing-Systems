@@ -10,8 +10,9 @@ int main (int argc, char * argv[]) {
     MPI_Init(&argc,&argv);
     MPI_Comm_size(MPI_COMM_WORLD,&size);
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    MPI_Status stat;
 
-    int X,Y,x,y,X_ext,i,j,k,l;
+    int X,Y,x,y,X_ext,i,j,k,l,L;
     double ** A, ** localA;
     X=atoi(argv[1]);
     Y=X;
@@ -55,26 +56,45 @@ int main (int argc, char * argv[]) {
      Don't forget to set the timers for computation and communication!
     ******************************************************************************/
 
-    /* 
+   // /* 
 
      
      for (k=0; k<X-1; k++) {
+    
        if (rank==(k/size)) {
-         for(l=(k/size); l<size; l++)     //the iteration begins from the first line that is not idle.
+
+         for(l=(k/size); l<size; l++) //the iteration begins from the first non idle line.
            if(l!=(k/size))
-             MPI_send(&localA[k%x][0],y,MPI_DOUBLE,l,tag,MPI_COMM_WORLD);
+             MPI_send(&localA[k%x][0],y,MPI_DOUBLE,l,0,MPI_COMM_WORLD);
+
          //computations
+         for (i=0; i<x; i++) {   //to i de ksekinaei apo to 0 edw FIXME
+           L=localA[i][k]/localA[k%x][k];
+           for (j=k; j<y; j++)
+             localA[i][j]-=L*localA[k%x][j];
+
+         }
        }  
-       else {
-         MPI_recv();
+
+       else if (rank > (k/size)) {
+         double * line_received;
+         MPI_recv(&line_received,y,MPI_DOUBLE,k/size,0,MPI_COMM_WORLD,&stat);
          //computations
+         for (i=0; i<x; i++) {
+           L=localA[i][k]/line_received[k];
+           for (j=k; j<y; j++)
+             localA[i][j]-=L*line_received[j];
+         
+
        }
+
+
      }
 
 
 
 
-    */
+   // */
 
     gettimeofday(&tf,NULL);
     total_time=tf.tv_sec-ts.tv_sec+(tf.tv_usec-ts.tv_usec)*0.000001;
