@@ -56,7 +56,7 @@ int main (int argc, char * argv[]) {
      Don't forget to set the timers for computation and communication!
     ******************************************************************************/
 
-   // /* 
+//    /* 
 
      
      for (k=0; k<X-1; k++) {
@@ -65,7 +65,7 @@ int main (int argc, char * argv[]) {
 
          for(l=(k/size); l<size; l++) //the iteration begins from the first non idle line.
            if(l!=(k/size))
-             MPI_send(&localA[k%x][0],y,MPI_DOUBLE,l,0,MPI_COMM_WORLD);
+             MPI_Send(&localA[k%x][0],y,MPI_DOUBLE,l,0,MPI_COMM_WORLD);
 
          //computations
          for (i=0; i<x; i++) {   //to i de ksekinaei apo to 0 edw FIXME
@@ -78,7 +78,7 @@ int main (int argc, char * argv[]) {
 
        else if (rank > (k/size)) {
          double * line_received;
-         MPI_recv(&line_received,y,MPI_DOUBLE,k/size,0,MPI_COMM_WORLD,&stat);
+         MPI_Recv(&line_received,y,MPI_DOUBLE,k/size,0,MPI_COMM_WORLD,&stat);
          //computations
          for (i=0; i<x; i++) {
            L=localA[i][k]/line_received[k];
@@ -86,15 +86,13 @@ int main (int argc, char * argv[]) {
              localA[i][j]-=L*line_received[j];
          
 
+         }
        }
-
-
      }
 
 
 
-
-   // */
+//   */
 
     gettimeofday(&tf,NULL);
     total_time=tf.tv_sec-ts.tv_sec+(tf.tv_usec-ts.tv_usec)*0.000001;
