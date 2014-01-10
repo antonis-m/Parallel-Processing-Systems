@@ -11,8 +11,9 @@ int main (int argc, char * argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD,&size);
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
     MPI_Status stat;
-
-    int X,Y,x,y,X_ext,i,j,k,l,L;
+    
+    int X,Y,x,y,X_ext,i,j,k,l,block_size;
+    double L;
     double ** A, ** localA;
     X=atoi(argv[1]);
     Y=X;
@@ -56,43 +57,50 @@ int main (int argc, char * argv[]) {
      Don't forget to set the timers for computation and communication!
     ******************************************************************************/
 
-//    /* 
+ 
 
-     
-     for (k=0; k<X-1; k++) {
-    
-       if (rank==(k/size)) {
+for (i=0; i<3; i++){
+  for(j=0; j<3;j++)
+    printf("%f ",localA[i][j]);
+  printf("\n");
+}
 
-         for(l=(k/size); l<size; l++) //the iteration begins from the first non idle line.
-           if(l!=(k/size))
+     block_size= x/size;
+     printf("block size %d\n",block_size);
+     for (k=0; k<x-1; k++) {
+       if (rank==k/block_size) {
+         for(l=(k/block_size); l<size; l++){ //the iteration begins from the first non idle line.
+           if(l!=(k/block_size))
              MPI_Send(&localA[k%x][0],y,MPI_DOUBLE,l,0,MPI_COMM_WORLD);
-
-         //computations
-         for (i=0; i<x; i++) {   //to i de ksekinaei apo to 0 edw FIXME
+        }
+        //computations
+         for (i=(k+1)%x; i<x; i++) {   
            L=localA[i][k]/localA[k%x][k];
            for (j=k; j<y; j++)
              localA[i][j]-=L*localA[k%x][j];
-
          }
        }  
 
-       else if (rank > (k/size)) {
+       else if (rank > (k/block_size)) {
          double * line_received;
-         MPI_Recv(&line_received,y,MPI_DOUBLE,k/size,0,MPI_COMM_WORLD,&stat);
+         MPI_Recv(&line_received,y,MPI_DOUBLE,k/block_size,0,MPI_COMM_WORLD,&stat);
          //computations
          for (i=0; i<x; i++) {
            L=localA[i][k]/line_received[k];
            for (j=k; j<y; j++)
              localA[i][j]-=L*line_received[j];
-         
 
          }
-       }
+        }   
      }
 
+for (i=0; i<3; i++){
+  for(j=0; j<3;j++)
+    printf("%f ",localA[i][j]);
+  printf("\n");
+}
 
-
-//   */
+      
 
     gettimeofday(&tf,NULL);
     total_time=tf.tv_sec-ts.tv_sec+(tf.tv_usec-ts.tv_usec)*0.000001;
