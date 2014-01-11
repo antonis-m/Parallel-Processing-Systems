@@ -59,19 +59,19 @@ int main (int argc, char * argv[]) {
 
  
 
-for (i=0; i<3; i++){
-  for(j=0; j<3;j++)
+/*for (i=0; i<2; i++){
+  for(j=0; j<2;j++)
     printf("%f ",localA[i][j]);
   printf("\n");
 }
-
+*/
      block_size= x/size;
      printf("block size %d\n",block_size);
      for (k=0; k<x-1; k++) {
        if (rank==k/block_size) {
          for(l=(k/block_size); l<size; l++){ //the iteration begins from the first non idle line.
            if(l!=(k/block_size))
-             MPI_Send(&localA[k%x][0],y,MPI_DOUBLE,l,0,MPI_COMM_WORLD);
+             MPI_Send(&localA[k%x][0],y,MPI_DOUBLE,l,0,MPI_COMM_WORLD);   //FIXME bug with size to be sent
         }
         //computations
          for (i=(k+1)%x; i<x; i++) {   
@@ -82,9 +82,14 @@ for (i=0; i<3; i++){
        }  
 
        else if (rank > (k/block_size)) {
-         double * line_received;
-         MPI_Recv(&line_received,y,MPI_DOUBLE,k/block_size,0,MPI_COMM_WORLD,&stat);
+         printf("rank %d\n",rank);
+
+         double * line_received ;
+         line_received = (double *)malloc(y*sizeof(double));
+
+         MPI_Recv(&line_received,y,MPI_DOUBLE,k/block_size,0,MPI_COMM_WORLD,&stat);  // FIXME bug with size to be received
          //computations
+         printf("Computations starting\n");
          for (i=0; i<x; i++) {
            L=localA[i][k]/line_received[k];
            for (j=k; j<y; j++)
@@ -94,11 +99,11 @@ for (i=0; i<3; i++){
         }   
      }
 
-for (i=0; i<3; i++){
-  for(j=0; j<3;j++)
+/*for (i=0; i<2; i++){
+  for(j=0; j<2;j++)
     printf("%f ",localA[i][j]);
   printf("\n");
-}
+} */
 
       
 
