@@ -79,7 +79,8 @@ int main (int argc, char * argv[]) {
 		if (rank == (k/x)) 
 			for (i = k%size+1; i < x; i++){
 				l = localA[i][k] / temp[k];
-				for (j = k+1; j < y; j++) {
+				//for (j = k+1; j < y; j++) {
+				for (j = k; j < y; j++) {
 					printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] -l*temp[j];
 				}
@@ -87,7 +88,8 @@ int main (int argc, char * argv[]) {
 		else 
 			for (i = 0; i < x; i++){
 				l = localA[i][k] / temp[k];
-				for (j = k+1; j < y; j++) {
+				//for (j = k+1; j < y; j++) {
+				for (j = k; j < y; j++) {
 					printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] -l*temp[j];
 				}
