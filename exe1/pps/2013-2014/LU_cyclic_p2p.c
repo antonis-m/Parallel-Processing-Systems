@@ -62,6 +62,7 @@ int main (int argc, char * argv[]) {
 	int l;
 	double m;
 	for (k=0;k<X-1;k++) {
+		gettimeofday(&comms, NULL);
 		if (rank == (k % size)){
 			printf("rank %d sending\n", rank);
 			for (i=0;i<(k%size);i++){
@@ -77,7 +78,10 @@ int main (int argc, char * argv[]) {
 			MPI_Recv(&temp[k], y-k, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status); 
 			//MPI_Recv(&temp[0], y, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status); 
 		}
+		gettimeofday(&commf, NULL);
+		communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
 		
+		gettimeofday(&comps, NULL);	
 		if (rank < (k%size)){			
 			for (i = k/size+1; i < x; i++){
 					m = localA[i][k] / temp[k];
@@ -108,6 +112,8 @@ int main (int argc, char * argv[]) {
 				}
 			}
 		}
+	gettimeofday(&compf, NULL);	
+	computation_time+=compf.tv_sec-comps.tv_sec+(compf.tv_usec-comps.tv_usec)*0.000001;
 	OUT:
 		MPI_Barrier(MPI_COMM_WORLD);
 	}
