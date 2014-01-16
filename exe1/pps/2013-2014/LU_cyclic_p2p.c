@@ -17,11 +17,6 @@ int main (int argc, char * argv[]) {
 	double **localA;
     X=atoi(argv[1]);
     Y=X;
-    if (rank==0) {
-        //Allocate and init matrix A
-        A=malloc2D(X,Y);
-        init2D(A,X,Y);
-	}
 
     //Extend dimension X with ghost cells if X%size!=0
     if (X%size!=0)
@@ -29,6 +24,11 @@ int main (int argc, char * argv[]) {
     else
         X_ext=X;
       
+    if (rank==0) {
+        //Allocate and init matrix A
+        A=malloc2D(X_ext,Y);
+        init2D(A,X,Y);
+	}
     //Local dimensions x,y
     x=X_ext/size;
     y=Y;
@@ -43,7 +43,7 @@ int main (int argc, char * argv[]) {
         MPI_Scatter(idx+i*size*Y,Y,MPI_DOUBLE,&localA[i][0],y,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	
 	if (rank==0)
-        free2D(A,X,Y);
+        free2D(A,X_ext,Y);
 	//Timers   
     struct timeval ts,tf,comps,compf,comms,commf;
     double total_time,computation_time,communication_time;
@@ -113,7 +113,7 @@ int main (int argc, char * argv[]) {
 
     //Gather local matrices back to the global matrix
    if (rank==0)
-        A=malloc2D(X,Y);
+        A=malloc2D(X_ext,Y);
 	if (rank == 0)
 		idx = &A[0][0];
 
