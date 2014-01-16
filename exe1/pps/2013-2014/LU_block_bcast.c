@@ -23,7 +23,7 @@ int main (int argc, char * argv[]) {
         X_ext=X;
     if (rank==0) {
         //Allocate and init matrix A
-        A=malloc2D(X,Y);
+        A=malloc2D(X_ext,Y);
         init2D(A,X,Y);
     }
 
@@ -67,17 +67,17 @@ int main (int argc, char * argv[]) {
 			 }
 		//send
 		gettimeofday(&comms, NULL);
-		MPI_Bcast(&temp[k], y-k, MPI_DOUBLE, k/size, MPI_COMM_WORLD);
+		MPI_Bcast(&temp[k], y-k, MPI_DOUBLE, k/x, MPI_COMM_WORLD);
 		gettimeofday(&commf, NULL);
 		communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
 
 		//if done with rows stop
-		if (k>=((rank+1)*size))
+		if (k>=((rank+1)*x - 1))
 			goto OUT;
 
 		gettimeofday(&comps, NULL);	
 		if (rank == (k/x)) 
-			for (i = k%size+1; i < x; i++){
+			for (i = k%x+1; i < x; i++){
 				l = localA[i][k] / temp[k];
 				//for (j = k+1; j < y; j++) {
 				for (j = k; j < y; j++) {

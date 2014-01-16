@@ -9,6 +9,7 @@ int main(int argc, char * argv[])
 	int X=atoi(argv[1]);
     int Y=X;
     double ** A=malloc2D(X,Y);
+    init2D(A,X,Y);
     int i,j,k;
     double l;
     struct timeval ts,tf;
