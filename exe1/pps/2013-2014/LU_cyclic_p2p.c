@@ -63,12 +63,13 @@ int main (int argc, char * argv[]) {
 	double m;
 	for (k=0;k<X-1;k++) {
 		if (rank == (k % size)){
+			printf("rank %d sending\n", rank);
 			for (i=0;i<(k%size);i++){
 				MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
 				//MPI_Send(&localA[k/x][0], y, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
 			}
 			for (i=k%size+1;i<size;i++){
-				MPI_Send(&localA[k/x][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
+				MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
 				//MPI_Send(&localA[k/x][0], y, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
 			} 
 		}
@@ -77,11 +78,11 @@ int main (int argc, char * argv[]) {
 			//MPI_Recv(&temp[0], y, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status); 
 		}
 		
-	
 		if (rank < (k%size)){			
 			for (i = k/size+1; i < x; i++){
 					m = localA[i][k] / temp[k];
-					for (j = k+1; j < y; j++) {
+					//for (j = k+1; j < y; j++) {
+					for (j = k; j < y; j++) {
 						printf("rank = %d i = %d j = %d\n", rank, i, j);
 						localA[i][j] = localA[i][j] -m*temp[j];
 					}
@@ -90,7 +91,8 @@ int main (int argc, char * argv[]) {
 		else if (rank == (k%size)){ 
 			for (i = k/size+1; i < x; i++){
 				m = localA[i][k] / localA[k/size][k];
-				for (j = k+1; j < y; j++) {
+				//for (j = k+1; j < y; j++) {
+				for (j = k; j < y; j++) {
 					printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] -m*localA[k/size][j];
 				}
@@ -98,14 +100,16 @@ int main (int argc, char * argv[]) {
 		}
 		else {
 			for (i = k/size; i < x; i++){
-				m = (localA[i][k]/temp[k]);	
-				for (j = k+1; j < y; j++) {
+				m = localA[i][k] / temp[k];	
+				//for (j = k+1; j < y; j++) {
+				for (j = k; j < y; j++) {
 					printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] - m*temp[j];
 				}
 			}
 		}
-	MPI_Barrier(MPI_COMM_WORLD);
+	OUT:
+		MPI_Barrier(MPI_COMM_WORLD);
 	}
 	gettimeofday(&tf,NULL);
     total_time=tf.tv_sec-ts.tv_sec+(tf.tv_usec-ts.tv_usec)*0.000001;
