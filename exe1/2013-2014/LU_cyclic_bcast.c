@@ -60,15 +60,27 @@ int main (int argc, char * argv[]) {
      int blocksize=x;
      for (k=0; k<X-1;k++){
        if (rank==k%size){
-         MPI_Bcast(&localA[k%blocksize][0],y,MPI_DOUBLE,k%size,MPI_COMM_WORLD);      
+         MPI_Bcast(&localA[k/blocksize][0],y,MPI_DOUBLE,k%size,MPI_COMM_WORLD);      
          printf("BROADCAST COMPLETE\n");
-         //upologismos gia upoloipes grammes
+
        } else {
          double * line_received;   
          line_received=(double *)malloc(y*sizeof(double);
          MPI_Bcast(&line_received[0],y,MPI_DOUBLE,k%size,MPI_COMM_WORLD); 
          //upologismos gia upoloipes grammes
        }
+       for(i=k+1;i<X;i++){
+         if(rank == i%size){
+           l = localA[i/blocksize][k]/localA[k/blocksize][k];
+
+         } else {
+           l = localA[i/blocksize][k]/line_received[k];
+
+
+
+         }
+       }
+
     }
 
 
