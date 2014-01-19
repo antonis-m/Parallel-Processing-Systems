@@ -12,7 +12,7 @@ int main (int argc, char * argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 
     int X,Y,x,y,X_ext,i,j,k;
-    double ** A, ** localA;
+    double ** A, ** localA,l;
     X=atoi(argv[1]);
     Y=X;
 
@@ -58,25 +58,35 @@ int main (int argc, char * argv[]) {
 
     
      int blocksize=x;
+     double * line_received;
+     line_received=(double *)malloc(y*sizeof(double));
+     printf("size %d \n",size) ;
+
+for(i=0;i<3;i++) {
+ for (j=0; j<3; j++)
+    printf("%f ",localA[i][j]);
+ printf("\n");
+
+}
      for (k=0; k<X-1;k++){
        if (rank==k%size){
-         MPI_Bcast(&localA[k/blocksize][0],y,MPI_DOUBLE,k%size,MPI_COMM_WORLD);      
+         MPI_Bcast(&localA[k/size][0],y,MPI_DOUBLE,k%size,MPI_COMM_WORLD);      
          printf("BROADCAST COMPLETE\n");
-
-       } else {
-         double * line_received;   
-         line_received=(double *)malloc(y*sizeof(double);
+       } else 
          MPI_Bcast(&line_received[0],y,MPI_DOUBLE,k%size,MPI_COMM_WORLD); 
-         //upologismos gia upoloipes grammes
-       }
+       
        for(i=k+1;i<X;i++){
          if(rank == i%size){
-           l = localA[i/blocksize][k]/localA[k/blocksize][k];
+           printf("ok !\n");
+           l = localA[i/size][k] / localA[k/size][k];
+           for (j=k; j<Y; j++) 
+             localA[i/size][j]-=l*localA[k/size][j] ;
 
          } else {
-           l = localA[i/blocksize][k]/line_received[k];
-
-
+           printf("gamwto\n");
+           l = localA[i/size][k]/line_received[k];
+           for (j=k; j<Y; j++)
+             localA[i/size][j]-=l*line_received[j] ; 
 
          }
        }
