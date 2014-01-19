@@ -109,7 +109,7 @@ int main (int argc, char * argv[]) {
     }
     MPI_Gather(&localA[0][0],x*y,MPI_DOUBLE,idx,x*y,MPI_DOUBLE,0,MPI_COMM_WORLD); // FIXME provlima sto gather !!!!
      printf("MPI GATHER COMPLETE\n");    
-    double avg_total,avg_comp,avg_comm,max_total,max_comp,max_comm;
+/*    double avg_total,avg_comp,avg_comm,max_total,max_comp,max_comm;
     MPI_Reduce(&total_time,&max_total,1,MPI_DOUBLE,MPI_MAX,0,MPI_COMM_WORLD);
     MPI_Reduce(&computation_time,&max_comp,1,MPI_DOUBLE,MPI_MAX,0,MPI_COMM_WORLD);
     MPI_Reduce(&communication_time,&max_comm,1,MPI_DOUBLE,MPI_MAX,0,MPI_COMM_WORLD);
@@ -126,7 +126,7 @@ int main (int argc, char * argv[]) {
         printf("Max times:\tTotal\t%lf\tComp\t%lf\tComm\t%lf\n",max_total,max_comp,max_comp);
         printf("Avg times:\tTotal\t%lf\tComp\t%lf\tComm\t%lf\n",avg_total,avg_comp,avg_comp);
     }
-
+*/
     //Print triangular matrix U to file
     if (rank==0) {
         char * filename="output_block_p2p";
