@@ -49,6 +49,7 @@ int main (int argc, char * argv[]) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     gettimeofday(&ts,NULL);        
+
     /******************************************************************************
      The matrix A is distributed in a round-robin fashion to the local matrices localA
      You have to use collective communication routines.
@@ -62,44 +63,50 @@ int main (int argc, char * argv[]) {
      line_received=(double *)malloc(y*sizeof(double));
      printf("size %d \n",size) ;
 
-for(i=0;i<3;i++) {
- for (j=0; j<3; j++)
-    printf("%f ",localA[i][j]);
- printf("\n");
+     for (k=0; k<X-1;k++) {
+         if (rank==k%size){
+         memcpy(&line_received[0], &localA[k/size][0], y*sizeof(double));      
+         printf("COPYING COMPLETE\n");
+       } 
 
-}
-     for (k=0; k<X-1;k++){
-       if (rank==k%size){
-         MPI_Bcast(&localA[k/size][0],y,MPI_DOUBLE,k%size,MPI_COMM_WORLD);      
-         printf("BROADCAST COMPLETE\n");
-       } else 
-         MPI_Bcast(&line_received[0],y,MPI_DOUBLE,k%size,MPI_COMM_WORLD); 
-       
+       MPI_Bcast(&line_received[0],y,MPI_DOUBLE,k%size,MPI_COMM_WORLD);  
+      /* for (i=0; i<y; i++)
+           printf(" %f ",line_received[i]);
+           printf("\n");
+      */
+
        for(i=k+1;i<X;i++){
-         if(rank == i%size){
-           printf("ok !\n");
-           l = localA[i/size][k] / localA[k/size][k];
-           for (j=k; j<Y; j++) 
-             localA[i/size][j]-=l*localA[k/size][j] ;
+         
+         if(rank == i%size) {
+//           printf("IN CURRENT RANK with i= %d !\n",i);
+//           printf("line received is \n");
+//           for(j=0;j<y;j++)
+//               printf("%f ",line_received[j]);
+//           printf("\n");
 
-         } else {
-           printf("gamwto\n");
+           l = localA[i/size][k] / line_received[k];
+           printf("l= %f \n",l);
+           for (j=k; j<Y; j++){ 
+             localA[i/size][j]-=l*line_received[j] ;
+//             printf("%f ",localA[i/size][j]);   
+           } 
+//           printf("\n");
+         } /* else { 
+
+          printf("IN OTHER RANK\n");
+          for (j=0;j<y;j++)
+             printf ("%f ",line_received[j]);
+             printf("\n");
            l = localA[i/size][k]/line_received[k];
            for (j=k; j<Y; j++)
              localA[i/size][j]-=l*line_received[j] ; 
 
-         }
-       }
+         }  */
+       MPI_Barrier(MPI_COMM_WORLD);
+       } 
 
     }
 
-
-   
-
-
-
-
-    
 
     gettimeofday(&tf,NULL);
     total_time=tf.tv_sec-ts.tv_sec+(tf.tv_usec-ts.tv_usec)*0.000001;
