@@ -10,16 +10,13 @@ int main (int argc, char * argv[]) {
     MPI_Init(&argc,&argv);
     MPI_Comm_size(MPI_COMM_WORLD,&size);
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-
-    int X,Y,x,y,X_ext,i,j,k;
+    MPI_Status stat;
+    
+    int X,Y,x,y,X_ext,i,j,k,l,block_size;
+    double L;
     double ** A, ** localA;
     X=atoi(argv[1]);
     Y=X;
-    if (rank==0) {
-        //Allocate and init matrix A
-        A=malloc2D(X,Y);
-        init2D(A,X,Y);
-    }
     //Extend dimension X with ghost cells if X%size!=0
     if (X%size!=0)
         X_ext=X+size-X%size;
@@ -30,7 +27,12 @@ int main (int argc, char * argv[]) {
     x=X_ext/size;
     y=Y;
     
-
+    if (rank==0) {
+        //Allocate and init matrix A
+        A=malloc2D(X_ext,Y);
+        init2D(A,X,Y);
+    }
+    
     //Allocate local matrix and scatter global matrix
     localA=malloc2D(x,y);
     double * idx;
@@ -39,14 +41,14 @@ int main (int argc, char * argv[]) {
     MPI_Scatter(idx,x*y,MPI_DOUBLE,&localA[0][0],x*y,MPI_DOUBLE,0,MPI_COMM_WORLD);
  
    if (rank==0) {
-        free2D(A,X,Y);
+        free2D(A,X_ext,Y);
     }
 
     //Timers   
     struct timeval ts,tf,comps,compf,comms,commf;
     double total_time,computation_time,communication_time;
 
-	MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
     gettimeofday(&ts,NULL);        
 
     /******************************************************************************
@@ -55,28 +57,70 @@ int main (int argc, char * argv[]) {
      Don't forget to set the timers for computation and communication!
     ******************************************************************************/
 
-    /* 
+ 
+     block_size= x; 
+         for (k=0; k<(X_ext-1); k++) {   
+         if (rank==k/block_size) {
+           for(l=(k/block_size); l<size; l++){  
+             if(l!=(k/block_size)) { 
+               
+               gettimeofday(&comms, NULL);
+               MPI_Send(&localA[k%x][/*0*/k],y-k,MPI_DOUBLE,l,0,MPI_COMM_WORLD);   //FIXME optimize size to be sent -k
+               gettimeofday(&commf, NULL);
+               communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
+             
+               }
+           }
+
+           //computations
+           gettimeofday(&comps, NULL);
+           for (i=(k+1)%x; i<x; i++) {
+             if (i==0)
+                break;
+             else {  
+             L=localA[i][k]/localA[k%x][k];
+             for (j=k; j<y; j++)
+               localA[i][j]-=L*localA[k%x][j];
+            }
+           }
+        //end of comp
+        gettimeofday(&compf, NULL);
+        computation_time+=compf.tv_sec-comps.tv_sec+(compf.tv_usec-comps.tv_usec)*0.000001;
 
 
+       }  
 
-    Fill your code here
+       else if (rank > (k/block_size)) {
+         
+         double * line_received ;
+         line_received = (double *)malloc(y*sizeof(double));
+         MPI_Recv(&line_received[0],y-k,MPI_DOUBLE,k/block_size,0,MPI_COMM_WORLD,&stat);  // FIXME -k
+         
+         //computations
+         gettimeofday(&comps, NULL);
+         for (i=0; i<x; i++) {
+           L=localA[i][k]/line_received[0];
+           for (j=k; j<y; j++)
+             localA[i][j]-=L*line_received[j-k];
+          }
+        gettimeofday(&compf, NULL);
+        computation_time+=compf.tv_sec-comps.tv_sec+(compf.tv_usec-comps.tv_usec)*0.000001;
 
 
+        }   
+     }
 
 
-    */
 
     gettimeofday(&tf,NULL);
     total_time=tf.tv_sec-ts.tv_sec+(tf.tv_usec-ts.tv_usec)*0.000001;
 	
-
     //Gather local matrices back to the global matrix
     if (rank==0) {
-        A=malloc2D(X,Y);    
+        A=malloc2D(X_ext,Y);    
         idx=&A[0][0];
     }
-    MPI_Gather(&localA[0][0],x*y,MPI_DOUBLE,idx,x*y,MPI_DOUBLE,0,MPI_COMM_WORLD);
-    
+    MPI_Gather(&localA[0][0],x*y,MPI_DOUBLE,idx,x*y,MPI_DOUBLE,0,MPI_COMM_WORLD); 
     double avg_total,avg_comp,avg_comm,max_total,max_comp,max_comm;
     MPI_Reduce(&total_time,&max_total,1,MPI_DOUBLE,MPI_MAX,0,MPI_COMM_WORLD);
     MPI_Reduce(&computation_time,&max_comp,1,MPI_DOUBLE,MPI_MAX,0,MPI_COMM_WORLD);
