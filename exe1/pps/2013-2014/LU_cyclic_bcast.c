@@ -61,29 +61,27 @@ int main (int argc, char * argv[]) {
      int blocksize=x;
      double * line_received;
      line_received=(double *)malloc(y*sizeof(double));
-//     printf("size %d \n",size) ;
+     computation_time=0;
+     communication_time=0;
 
      for (k=0; k<X-1;k++) {
-         if (rank==k%size){
-         memcpy(&line_received[0], &localA[k/size][0], y*sizeof(double));      
-//         printf("COPYING COMPLETE\n");
-       } 
+         if (rank==k%size)
+         memcpy(&line_received[0], &localA[k/size][k], (y-k)*sizeof(double)); //0-0-y     
+        
+         gettimeofday(&comms, NULL);
+         MPI_Bcast(&line_received[0],y-k,MPI_DOUBLE,k%size,MPI_COMM_WORLD);  //y
+         gettimeofday(&commf, NULL);
+         communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
+//beginning of computations
 
-       MPI_Bcast(&line_received[0],y,MPI_DOUBLE,k%size,MPI_COMM_WORLD);  
-      /* for (i=0; i<y; i++)
-           printf(" %f ",line_received[i]);
-           printf("\n");
-      */
-
-
+       gettimeofday(&comps, NULL);
        if ( rank == k%size ) {
           i = k/size;
           for(i=i+1; i<x; i++) {
-            l = localA[i][k] / line_received[k];
-//            printf("l= %f \n",l);
-            for (j=k; j<Y; j++){ 
-              localA[i][j]-=l*line_received[j] ;
-           } 
+            l = localA[i][k] / line_received[/*k*/0];
+            for (j=k; j<Y; j++) 
+              localA[i][j]-=l*line_received[j-k] ;
+            
           } 
 
        } else {
@@ -92,44 +90,27 @@ int main (int argc, char * argv[]) {
 
          if (rank < rank_k) {
           for(i=pos_k + 1; i<x; i++) {
-            l = localA[i][k] / line_received[k];
-//            printf("l= %f \n",l);
-            for (j=k; j<Y; j++){
-              localA[i][j]-=l*line_received[j] ;
-           }
+            l = localA[i][k] / line_received[/*k*/0];
+            for (j=k; j<Y; j++)
+              localA[i][j]-=l*line_received[j-k] ;
+           
           }
 
         } else if (rank > rank_k) { 
            for(i=pos_k; i<x; i++) {
-             l = localA[i][k] / line_received[k];
- //            printf("l= %f \n",l);
-             for (j=k; j<Y; j++){
-               localA[i][j]-=l*line_received[j] ;
-           }
+             l = localA[i][k] / line_received[/*k*/0];
+             for (j=k; j<Y; j++)
+               localA[i][j]-=l*line_received[j-k] ;
+           
           }
-
-
          }
-       }
+       }  //end of computations
+       gettimeofday(&compf, NULL);
+       computation_time+=compf.tv_sec-comps.tv_sec+(compf.tv_usec-comps.tv_usec)*0.000001;
 
-       
-/*
-       for(i=k+1;i<X;i++){
-         
-         if(rank == i%size) {
-           l = localA[i/size][k] / line_received[k];
-//           printf("l= %f \n",l);
-           for (j=k; j<Y; j++){ 
-             localA[i/size][j]-=l*line_received[j] ;
-           } 
-         }
-
-       MPI_Barrier(MPI_COMM_WORLD);
-       } 
-*/
     }
 
-
+    free(line_received);
     gettimeofday(&tf,NULL);
     total_time=tf.tv_sec-ts.tv_sec+(tf.tv_usec-ts.tv_usec)*0.000001;
 
