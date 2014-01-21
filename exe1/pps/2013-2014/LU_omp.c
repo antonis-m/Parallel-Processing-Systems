@@ -16,19 +16,48 @@ int main(int argc, char * argv[])
 	int X=atoi(argv[1]);
     int Y=X;
     double ** A=malloc2D(X,Y);
-    print2D(A,X,Y);
+    init2D(A, X, Y);
+	//print2D(A,X,Y);
     int i,j,k;
     double l;
     struct timeval ts,tf;
     double total_time;
+	
+	omp_set_num_threads(atoi(argv[2]));
+	
+	//version 1
+	#pragma omp parallel shared(A, k) private(i, j)
+	{
+		#pragma omp master
+		gettimeofday(&ts,NULL);	
+		//for (k=0;k<X-1;k++)
+		k = 0;
+		while(k<X-1){
+			#pragma omp for 
+			for (i=k+1;i<X;i++) {
+				l=A[i][k]/A[k][k];
+				for (j=k;j<Y;j++)		
+					A[i][j]-=l*A[k][j];
+			}
 
-	gettimeofday(&ts,NULL);
+			#pragma omp master
+			k++;
+			#pragma omp barrier
+		}
+	
+	}
+
+	/* 
+	//version 2
+	gettimeofday(&ts,NULL);	
 	for (k=0;k<X-1;k++)
+		#pragma omp parallel for shared(A, k) private(i,j) 
 		for (i=k+1;i<X;i++) {
 			l=A[i][k]/A[k][k];
 			for (j=k;j<Y;j++)		
 				A[i][j]-=l*A[k][j];
 		}
+	*/
 	gettimeofday(&tf,NULL);
 	total_time=(tf.tv_sec-ts.tv_sec)+(tf.tv_usec-ts.tv_usec)*0.000001;
 	printf("LU-OpenMP\t%d\t%.3lf\n",X,total_time);
