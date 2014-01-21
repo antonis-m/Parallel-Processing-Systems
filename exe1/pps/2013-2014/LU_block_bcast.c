@@ -61,7 +61,7 @@ int main (int argc, char * argv[]) {
 	for (k = 0; k < X - 1; k++) {
 		// find which rank must send and copy the correct row and size
 		if (rank == (k / x)){
-			printf("rank=%d\n", rank);
+			//printf("rank=%d\n", rank);
 			 memcpy(&temp[k], &localA[k%x][k], (y-k)*sizeof(double));   // this is an optimization
 			 //memcpy(temp, &localA[k%size][0], y*sizeof(double));
 			 }
@@ -81,7 +81,7 @@ int main (int argc, char * argv[]) {
 				l = localA[i][k] / temp[k];
 				//for (j = k+1; j < y; j++) {
 				for (j = k; j < y; j++) {
-					printf("rank = %d i = %d j = %d\n", rank, i, j);
+					//printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] -l*temp[j];
 				}
 			}
@@ -90,7 +90,7 @@ int main (int argc, char * argv[]) {
 				l = localA[i][k] / temp[k];
 				//for (j = k+1; j < y; j++) {
 				for (j = k; j < y; j++) {
-					printf("rank = %d i = %d j = %d\n", rank, i, j);
+					//printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] -l*temp[j];
 				}
 			}

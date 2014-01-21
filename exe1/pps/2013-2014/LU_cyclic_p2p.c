@@ -64,7 +64,7 @@ int main (int argc, char * argv[]) {
 	for (k=0;k<X-1;k++) {
 		gettimeofday(&comms, NULL);
 		if (rank == (k % size)){
-			printf("rank %d sending\n", rank);
+			//printf("rank %d sending\n", rank);
 			for (i=0;i<(k%size);i++){
 				MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
 				//MPI_Send(&localA[k/x][0], y, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
@@ -87,7 +87,7 @@ int main (int argc, char * argv[]) {
 					m = localA[i][k] / temp[k];
 					//for (j = k+1; j < y; j++) {
 					for (j = k; j < y; j++) {
-						printf("rank = %d i = %d j = %d\n", rank, i, j);
+						//printf("rank = %d i = %d j = %d\n", rank, i, j);
 						localA[i][j] = localA[i][j] -m*temp[j];
 					}
 				}
@@ -97,7 +97,7 @@ int main (int argc, char * argv[]) {
 				m = localA[i][k] / localA[k/size][k];
 				//for (j = k+1; j < y; j++) {
 				for (j = k; j < y; j++) {
-					printf("rank = %d i = %d j = %d\n", rank, i, j);
+					//printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] -m*localA[k/size][j];
 				}
 			}
@@ -107,7 +107,7 @@ int main (int argc, char * argv[]) {
 				m = localA[i][k] / temp[k];	
 				//for (j = k+1; j < y; j++) {
 				for (j = k; j < y; j++) {
-					printf("rank = %d i = %d j = %d\n", rank, i, j);
+					//printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] - m*temp[j];
 				}
 			}
