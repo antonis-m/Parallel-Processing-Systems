@@ -55,6 +55,7 @@ int main (int argc, char * argv[]) {
 	 ******************************************************************************/
 	double * temp = malloc(y*sizeof(double));
 	double l;
+	double * pointer;
 	computation_time = 0;
 	communication_time = 0;
 
@@ -62,12 +63,15 @@ int main (int argc, char * argv[]) {
 		// find which rank must send and copy the correct row and size
 		if (rank == (k / x)){
 			//printf("rank=%d\n", rank);
-			 memcpy(&temp[k], &localA[k%x][k], (y-k)*sizeof(double));   // this is an optimization
+			 //memcpy(&temp[k], &localA[k%x][k], (y-k)*sizeof(double));   // this is an optimization
+			 pointer = &localA[k%x][k];
 			 //memcpy(temp, &localA[k%size][0], y*sizeof(double));
-			 }
+			 } else 
+				pointer = &temp[k];
 		//send
 		gettimeofday(&comms, NULL);
-		MPI_Bcast(&temp[k], y-k, MPI_DOUBLE, k/x, MPI_COMM_WORLD);
+		//MPI_Bcast(&temp[k], y-k, MPI_DOUBLE, k/x, MPI_COMM_WORLD);
+		MPI_Bcast(pointer, y-k, MPI_DOUBLE, k/x, MPI_COMM_WORLD);
 		gettimeofday(&commf, NULL);
 		communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
 
@@ -78,20 +82,20 @@ int main (int argc, char * argv[]) {
 		gettimeofday(&comps, NULL);	
 		if (rank == (k/x)) 
 			for (i = k%x+1; i < x; i++){
-				l = localA[i][k] / temp[k];
+				l = localA[i][k] / (*pointer);
 				//for (j = k+1; j < y; j++) {
 				for (j = k; j < y; j++) {
 					//printf("rank = %d i = %d j = %d\n", rank, i, j);
-					localA[i][j] = localA[i][j] -l*temp[j];
+					localA[i][j] = localA[i][j] -l*pointer[j-k];
 				}
 			}
 		else 
 			for (i = 0; i < x; i++){
-				l = localA[i][k] / temp[k];
+				l = localA[i][k] / (*pointer);
 				//for (j = k+1; j < y; j++) {
 				for (j = k; j < y; j++) {
 					//printf("rank = %d i = %d j = %d\n", rank, i, j);
-					localA[i][j] = localA[i][j] -l*temp[j];
+					localA[i][j] = localA[i][j] -l*pointer[j-k];
 				}
 			}
 		gettimeofday(&compf, NULL);	
