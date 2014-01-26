@@ -11,6 +11,8 @@ int main (int argc, char * argv[]) {
     MPI_Init(&argc,&argv);
     MPI_Comm_size(MPI_COMM_WORLD,&size);
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+    MPI_Request requestNull, *requestList; 
+    MPI_Status  *stat;
 
     int X,Y,x,y,X_ext,i,j,k;    
     double **A;
@@ -58,6 +60,8 @@ int main (int argc, char * argv[]) {
 	
 	
 	MPI_Status status;
+        requestList =(MPI_Request*)malloc(size*sizeof(MPI_Request));
+        stat = (MPI_Status*)malloc(size*sizeof(MPI_Status));
 	double * temp = (double *)malloc(y*sizeof(double));
 	int l;
 	double m;
@@ -66,17 +70,18 @@ int main (int argc, char * argv[]) {
 		if (rank == (k % size)){
 			//printf("rank %d sending\n", rank);
 			for (i=0;i<(k%size);i++){
-				MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
-				//MPI_Send(&localA[k/x][0], y, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
+                                MPI_Isend(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD,&requestNull);
+			       //MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
 			}
 			for (i=k%size+1;i<size;i++){
-				MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
-				//MPI_Send(&localA[k/x][0], y, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
+                               MPI_Isend(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD,&requestNull);
+			       //   MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);  
 			} 
 		}
 		else {
-			MPI_Recv(&temp[k], y-k, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status); 
-			//MPI_Recv(&temp[0], y, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status); 
+                       MPI_Irecv(&temp[k], y-k, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &requestList[rank]);
+                       MPI_Wait(&requestList[rank], &stat[rank]);  
+		       // MPI_Recv(&temp[k], y-k, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status);  
 		}
 		gettimeofday(&commf, NULL);
 		communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
