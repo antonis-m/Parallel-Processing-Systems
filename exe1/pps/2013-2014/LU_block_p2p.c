@@ -62,16 +62,18 @@ int main (int argc, char * argv[]) {
      block_size= x;
      requestList =(MPI_Request*)malloc(size*sizeof(MPI_Request)); 
      stat = (MPI_Status*)malloc(size*sizeof(MPI_Status));
+     MPI_Status status;
          for (k=0; k<(X_ext-1); k++) {   
          if (rank==k/block_size) {
            for(l=(k/block_size); l<size; l++){  
              if(l!=(k/block_size)) { 
                
                gettimeofday(&comms, NULL);
-              // MPI_Send(&localA[k%x][k],y-k,MPI_DOUBLE,l,0,MPI_COMM_WORLD);    // replace with non blocking; 
+              //MPI_Send(&localA[k%x][k],y-k,MPI_DOUBLE,l,0,MPI_COMM_WORLD);    // replace with non blocking; 
                MPI_Isend(&localA[k%x][k],y-k,MPI_DOUBLE,l,0,MPI_COMM_WORLD,&requestNull);
                gettimeofday(&commf, NULL);
                communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
+
                }
            }
 
@@ -97,9 +99,15 @@ int main (int argc, char * argv[]) {
          
          double * line_received ;
          line_received = (double *)malloc(y*sizeof(double));
-         //MPI_Recv(&line_received[0],y-k,MPI_DOUBLE,k/block_size,0,MPI_COMM_WORLD,&stat);  // replace with non blocking ;
-         MPI_Irecv(&line_received[0],y-k,MPI_DOUBLE,k/block_size,0,MPI_COMM_WORLD,&requestList[rank-1]);
-         MPI_Wait(&requestList[rank-1], &stat[rank-1]);     //added Waitall         
+
+         gettimeofday(&comms, NULL);
+         MPI_Recv(&line_received[0],y-k,MPI_DOUBLE,k/block_size,0,MPI_COMM_WORLD,&status);  // replace with non blocking ;
+         gettimeofday(&commf, NULL);
+         communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
+
+         //MPI_Irecv(&line_received[0],y-k,MPI_DOUBLE,k/block_size,0,MPI_COMM_WORLD,&requestList[rank-1]);
+         //MPI_Wait(&requestList[rank-1], &stat[rank-1]);     //added Waitall         
+
          //computations
          gettimeofday(&comps, NULL);
          for (i=0; i<x; i++) {
