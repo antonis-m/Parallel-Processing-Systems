@@ -10,7 +10,8 @@ int main (int argc, char * argv[]) {
     MPI_Init(&argc,&argv);
     MPI_Comm_size(MPI_COMM_WORLD,&size);
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-    MPI_Status stat;
+    MPI_Status *stat;
+    MPI_Request *requestList, requestNull;
     
     int X,Y,x,y,X_ext,i,j,k,l,block_size;
     double L;
@@ -58,14 +59,17 @@ int main (int argc, char * argv[]) {
     ******************************************************************************/
 
  
-     block_size= x; 
+     block_size= x;
+     requestList =(MPI_Request*)malloc((size-1)*sizeof(MPI_Request)); 
+     stat = (MPI_Status*)malloc((size-1)*sizeof(MPI_Status));
          for (k=0; k<(X_ext-1); k++) {   
          if (rank==k/block_size) {
            for(l=(k/block_size); l<size; l++){  
              if(l!=(k/block_size)) { 
                
                gettimeofday(&comms, NULL);
-               MPI_Send(&localA[k%x][/*0*/k],y-k,MPI_DOUBLE,l,0,MPI_COMM_WORLD);   //FIXME optimize size to be sent -k
+              // MPI_Send(&localA[k%x][k],y-k,MPI_DOUBLE,l,0,MPI_COMM_WORLD);    // replace with non blocking; 
+               MPI_Isend(&localA[k%x][k],y-k,MPI_DOUBLE,l,0,MPI_COMM_WORLD,&requestNull);
                gettimeofday(&commf, NULL);
                communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
              
@@ -94,8 +98,9 @@ int main (int argc, char * argv[]) {
          
          double * line_received ;
          line_received = (double *)malloc(y*sizeof(double));
-         MPI_Recv(&line_received[0],y-k,MPI_DOUBLE,k/block_size,0,MPI_COMM_WORLD,&stat);  // FIXME -k
-         
+         //MPI_Recv(&line_received[0],y-k,MPI_DOUBLE,k/block_size,0,MPI_COMM_WORLD,&stat);  // replace with non blocking ;
+         MPI_Irecv(&line_received[0],y-k,MPI_DOUBLE,k/block_size,0,MPI_COMM_WORLD,&requestList[rank-1]);
+         MPI_Waitall(size-1,&requestList[0], &stat[0]);     //added Waitall         
          //computations
          gettimeofday(&comps, NULL);
          for (i=0; i<x; i++) {
