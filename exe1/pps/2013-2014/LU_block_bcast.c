@@ -61,13 +61,11 @@ int main (int argc, char * argv[]) {
 
 	for (k = 0; k < X - 1; k++) {
 		// find which rank must send and copy the correct row and size
-		if (rank == (k / x)){
-			//printf("rank=%d\n", rank);
-			 //memcpy(&temp[k], &localA[k%x][k], (y-k)*sizeof(double));   // this is an optimization
-			 pointer = &localA[k%x][k];
-			 //memcpy(temp, &localA[k%size][0], y*sizeof(double));
-			 } else 
-				pointer = &temp[k];
+		if (rank == (k / x))
+			pointer = &localA[k%x][k];
+		else 
+			pointer = &temp[k];
+		
 		//send
 		gettimeofday(&comms, NULL);
 		//MPI_Bcast(&temp[k], y-k, MPI_DOUBLE, k/x, MPI_COMM_WORLD);
@@ -84,19 +82,17 @@ int main (int argc, char * argv[]) {
 			for (i = k%x+1; i < x; i++){
 				l = localA[i][k] / (*pointer);
 				//for (j = k+1; j < y; j++) {
-				for (j = k; j < y; j++) {
+				for (j = k; j < y; j++) 
 					//printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] -l*pointer[j-k];
-				}
 			}
 		else 
-			for (i = 0; i < x; i++){
+			for (i = 0; i < x; i++) {
 				l = localA[i][k] / (*pointer);
 				//for (j = k+1; j < y; j++) {
-				for (j = k; j < y; j++) {
+				for (j = k; j < y; j++) 
 					//printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] -l*pointer[j-k];
-				}
 			}
 		gettimeofday(&compf, NULL);	
 		computation_time+=compf.tv_sec-comps.tv_sec+(compf.tv_usec-comps.tv_usec)*0.000001;
@@ -128,8 +124,8 @@ int main (int argc, char * argv[]) {
 
     if (rank==0) {
         printf("LU-Block-bcast\tSize\t%d\tProcesses\t%d\n",X,size);
-        printf("Max times:\tTotal\t%lf\tComp\t%lf\tComm\t%lf\n",max_total,max_comp,max_comp);
-        printf("Avg times:\tTotal\t%lf\tComp\t%lf\tComm\t%lf\n",avg_total,avg_comp,avg_comp);
+        printf("Max times:\tTotal\t%lf\tComp\t%lf\tComm\t%lf\n",max_total,max_comp,max_comm);
+        printf("Avg times:\tTotal\t%lf\tComp\t%lf\tComm\t%lf\n",avg_total,avg_comp,avg_comm);
     }
 
     //Print triangular matrix U to file

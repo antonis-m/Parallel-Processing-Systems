@@ -41,7 +41,6 @@ int main (int argc, char * argv[]) {
 		idx = &A[0][0];
 
 	for (i=0;i<x;i++)
-        //MPI_Scatter(&A[i*size][0],Y,MPI_DOUBLE,&localA[i][0],y,MPI_DOUBLE,0,MPI_COMM_WORLD);
         MPI_Scatter(idx+i*size*Y,Y,MPI_DOUBLE,&localA[i][0],y,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	
 	if (rank==0)
@@ -60,8 +59,6 @@ int main (int argc, char * argv[]) {
 	
 	
 	MPI_Status status;
-        requestList =(MPI_Request*)malloc(size*sizeof(MPI_Request));
-        stat = (MPI_Status*)malloc(size*sizeof(MPI_Status));
 	double * temp = (double *)malloc(y*sizeof(double));
 	int l;
 	double m;
@@ -69,19 +66,17 @@ int main (int argc, char * argv[]) {
 		gettimeofday(&comms, NULL);
 		if (rank == (k % size)){
 			//printf("rank %d sending\n", rank);
-			for (i=0;i<(k%size);i++){
-                                MPI_Isend(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD,&requestNull);
-			       //MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
-			}
-			for (i=k%size+1;i<size;i++){
-                               MPI_Isend(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD,&requestNull);
-			       //   MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);  
-			} 
-		}
-		else {
-                       MPI_Irecv(&temp[k], y-k, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &requestList[rank]);
-                       MPI_Wait(&requestList[rank], &stat[rank]);  
-		       // MPI_Recv(&temp[k], y-k, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status);  
+			for (i=0;i<(k%size);i++)
+				MPI_Isend(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD,&requestNull);
+			    //MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD); 
+			for (i=k%size+1;i<size;i++)
+				MPI_Isend(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD,&requestNull);
+			    //MPI_Send(&localA[k/size][k], y-k, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);   
+		} else {
+			//MPI_Irecv(&temp[k], y-k, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &requestList[rank]);
+            // MPI_Wait(&requestList[rank], &stat[rank]);  
+		    // MPI_Recv(&temp[k], y-k, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status);  
+		    MPI_Recv(&temp[k], y-k, MPI_DOUBLE, k%size, 0, MPI_COMM_WORLD, &status);  
 		}
 		gettimeofday(&commf, NULL);
 		communication_time+=commf.tv_sec-comms.tv_sec+(commf.tv_usec-comms.tv_usec)*0.000001;
@@ -91,36 +86,30 @@ int main (int argc, char * argv[]) {
 			for (i = k/size+1; i < x; i++){
 					m = localA[i][k] / temp[k];
 					//for (j = k+1; j < y; j++) {
-					for (j = k; j < y; j++) {
-						//printf("rank = %d i = %d j = %d\n", rank, i, j);
+					for (j = k; j < y; j++) 
 						localA[i][j] = localA[i][j] -m*temp[j];
-					}
 				}
 		}
 		else if (rank == (k%size)){ 
 			for (i = k/size+1; i < x; i++){
 				m = localA[i][k] / localA[k/size][k];
 				//for (j = k+1; j < y; j++) {
-				for (j = k; j < y; j++) {
+				for (j = k; j < y; j++) 
 					//printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] -m*localA[k/size][j];
-				}
 			}
 		}
 		else {
 			for (i = k/size; i < x; i++){
 				m = localA[i][k] / temp[k];	
 				//for (j = k+1; j < y; j++) {
-				for (j = k; j < y; j++) {
+				for (j = k; j < y; j++) 
 					//printf("rank = %d i = %d j = %d\n", rank, i, j);
 					localA[i][j] = localA[i][j] - m*temp[j];
-				}
 			}
 		}
-	gettimeofday(&compf, NULL);	
-	computation_time+=compf.tv_sec-comps.tv_sec+(compf.tv_usec-comps.tv_usec)*0.000001;
-	OUT:
-		MPI_Barrier(MPI_COMM_WORLD);
+		gettimeofday(&compf, NULL);	
+		computation_time+=compf.tv_sec-comps.tv_sec+(compf.tv_usec-comps.tv_usec)*0.000001;
 	}
 	gettimeofday(&tf,NULL);
     total_time=tf.tv_sec-ts.tv_sec+(tf.tv_usec-ts.tv_usec)*0.000001;
@@ -151,8 +140,8 @@ int main (int argc, char * argv[]) {
 
     if (rank==0) {
         printf("LU-Cyclic-p2p\tSize\t%d\tProcesses\t%d\n",X,size);
-        printf("Max times:\tTotal\t%lf\tComp\t%lf\tComm\t%lf\n",max_total,max_comp,max_comp);
-        printf("Avg times:\tTotal\t%lf\tComp\t%lf\tComm\t%lf\n",avg_total,avg_comp,avg_comp);
+        printf("Max times:\tTotal\t%lf\tComp\t%lf\tComm\t%lf\n",max_total,max_comp,max_comm);
+        printf("Avg times:\tTotal\t%lf\tComp\t%lf\tComm\t%lf\n",avg_total,avg_comp,avg_comm);
     }
 
     //Print triangular matrix U to file
