@@ -26,15 +26,16 @@ int main(int argc, char * argv[])
 	omp_set_num_threads(atoi(argv[2]));
 	
 	gettimeofday(&ts,NULL);	
-	#pragma omp parallel shared(A) private(i, j, k)
-	for (k=0;k<X-1;k++)
-		#pragma omp for
-		for (i=k+1;i<X;i++) {
-			l=A[i][k]/A[k][k];
-			for (j=k;j<Y;j++)		
-				A[i][j]-=l*A[k][j];
-		}
-	
+	#pragma omp parallel shared(A,X,Y) private(i, j, k,l)
+	{
+		for (k=0;k<X-1;k++)
+			#pragma omp for
+			for (i=k+1;i<X;i++) {
+				l=A[i][k]/A[k][k];
+				for (j=k;j<Y;j++)		
+					A[i][j]-=l*A[k][j];
+			}
+	}
 	gettimeofday(&tf,NULL);
 	total_time=(tf.tv_sec-ts.tv_sec)+(tf.tv_usec-ts.tv_usec)*0.000001;
 	printf("LU-OpenMP\t%d\t%.3lf\n",X,total_time);
