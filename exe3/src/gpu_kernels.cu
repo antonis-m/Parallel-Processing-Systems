@@ -44,7 +44,15 @@ graph_t *copy_graph_from_gpu(const weight_t *dist_gpu, graph_t *graph)
  */ 
 __global__ void GPU_KERNEL_NAME(_naive)(weight_t *dist, int n, int k)
 {
-    // FILLME: the naive GPU kernel code
+    int tid = blockDim.x*blockIdx.x+threadIdx.x;
+    
+    if (tid > n*n)
+        return;
+    
+    int row = tid / n;
+    int col = tid % n;
+
+    dist[tid] = MIN(tid, dist[row*n+k]+dist[k*n+col]);  
 }
 
 /*
@@ -97,9 +105,7 @@ graph_t *MAKE_KERNEL_NAME(_gpu, _naive)(graph_t *graph)
 
     //call the GPU kernel
     for(int k=0;k<graph->nr_vertices;k++) { //main loop
-
-        GPU_KERNEL_NAME(_naive)<<<grid, block>>>(weight_t *dist, 
-                                                 graph->nr_vertices, k)
+        GPU_KERNEL_NAME(_naive)<<<grid, block>>>(dist_gpu,graph->nr_vertices,k);
         cudaThreadSynchronize();
     }
 
