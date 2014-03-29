@@ -90,11 +90,20 @@ graph_t *MAKE_KERNEL_NAME(_gpu, _naive)(graph_t *graph)
     timer_start(&transfer_timer);
     weight_t *dist_gpu = copy_graph_to_gpu(graph);
     timer_stop(&transfer_timer);
-
-    /* FILLME: Set up and launch the kernel(s) */
     
-    /*
-     * Wait for last kernel to finish, so as to measure correctly the
+    //init block and grid
+    dim3 block(64);
+    dim3 grid((graph->nr_vertices*graph->nr_vertices)/64); // this should change
+
+    //call the GPU kernel
+    for(int k=0;k<graph->nr_vertices;k++) { //main loop
+
+        GPU_KERNEL_NAME(_naive)<<<grid, block>>>(weight_t *dist, 
+                                                 graph->nr_vertices, k)
+        cudaThreadSynchronize();
+    }
+
+     /* Wait for last kernel to finish, so as to measure correctly the
      * transfer times Otherwise, copy from GPU will block
      */
     cudaThreadSynchronize();
