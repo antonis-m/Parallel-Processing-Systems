@@ -44,8 +44,8 @@ graph_t *copy_graph_from_gpu(const weight_t *dist_gpu, graph_t *graph)
  */ 
 __global__ void GPU_KERNEL_NAME(_naive)(weight_t *dist, int n, int k)
 {
-    int tid = blockDim.x*blockIdx.x+threadIdx.x;
-    
+  int tid = (blockDim.x*blockDim.y*blockIdx.x)+
+                                    (threadIdx.x*blockDim.y + threadIdx.y);  
     if (tid > n*n)
         return;
     
@@ -100,7 +100,7 @@ graph_t *MAKE_KERNEL_NAME(_gpu, _naive)(graph_t *graph)
     timer_stop(&transfer_timer);
     
     //init block and grid
-    dim3 block(64);
+    dim3 block(8,8);
     dim3 grid((graph->nr_vertices*graph->nr_vertices)/64); // this should change
 
     //call the GPU kernel
