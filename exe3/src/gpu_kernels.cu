@@ -44,24 +44,69 @@ graph_t *copy_graph_from_gpu(const weight_t *dist_gpu, graph_t *graph)
  */ 
 __global__ void GPU_KERNEL_NAME(_naive)(weight_t *dist, int n, int k)
 {
-  int tid = (blockDim.x*blockDim.y*blockIdx.x)+
-                                    (threadIdx.x*blockDim.y + threadIdx.y);  
+    int tid = (blockDim.x*blockDim.y*blockIdx.x)+
+        (threadIdx.x*blockDim.y + threadIdx.y);  
     if (tid > n*n)
         return;
-    
+
     int row = tid / n;
     int col = tid % n;
 
-    dist[tid] = MIN(tid, dist[row*n+k]+dist[k*n+col]);  
+    dist[tid] = MIN(dist[tid], dist[row*n+k]+dist[k*n+col]);  
 }
 
 /*
  *  The tiled GPU kernel(s) using global memory
  */ 
 __global__ void GPU_KERNEL_NAME(_tiled_stage_X)(weight_t *dist, int n,
-                                                int k_tile)
+        int k_tile)
 {
-    // FILLME: tiled GPU kernel code for stage X
+    int tid = (blockDim.x*blockDim.y*blockIdx.x)+
+        (threadIdx.x*blockDim.y + threadIdx.y);  
+    if (tid > n*n)
+        return;
+    weight_t * a;
+    weight_t * b;
+    weight_t * c;
+    
+    /*case single block or line grid*/
+    if (gridDim.x == 1) {
+
+        /*signle block*/
+        if (gridDim.y == 1) {
+            a = &dist[k_tile*GPU_TILE_DIM+k_tile*n];
+            b = &dist[k_tile*GPU_TILE_DIM+k_tile*n];
+            c = &dist[k_tile*GPU_TILE_DIM+k_tile*n];
+        } else { /*line grid*/
+            if (blockIdx.y == k_tile)
+                return;
+            a = &dist[k_tile*n+blockIdx.y*GPU_TILE_DIM];
+            b = &dist[k_tile*GPU_TILE_DIM+k_tile*n];
+            c = &dist[k_tile*n+blockIdx.y*GPU_TILE_DIM];
+        }
+
+    } else { /*case column grid or square grid*/
+        
+        if (gridDim.y == 1) { /*column grid*/
+            if (blockIdx.x == k_tile)
+                return;
+            a = &dist[k_tile*GPU_TILE+blockIdx.x*n];
+            b = &dist[k_tile*GPU_TILE+blockIdx.x*n];
+            c = &dist[k_tile*GPU_TILE_DIM+k_tile*n];
+        } else { /*square grid*/
+            if ((blockIdx.x == k_tile) || (blockIdx.y == k_tile))
+                return;
+            a = &dist[blockIdx.y*GPU_TILE+blockIdx.x*n];
+            b = &dist[k_tile*GPU_TILE+blockIdx.x*n];
+            c = &dist[blockIdx.y*GPU_TILE_DIM+k_tile*n];
+        }
+
+    }
+    
+    int row = tid / GPU_TILE;
+    int col = tid % GPU_TILE;
+
+    a[tid] = MIN(a[tid], b[row*n+k]+c[k*n+col]);  
 }
 
 /*
