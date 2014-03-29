@@ -62,12 +62,12 @@ __global__ void GPU_KERNEL_NAME(_naive)(weight_t *dist, int n, int k)
 __global__ void GPU_KERNEL_NAME(_tiled_stage_X)(weight_t *dist, int n,
         int k_tile, int kk)
 {
-    int tid = threadIdx.x*blockDim.y + threadIdx.y;  
-    
+    int tid = threadIdx.x*blockDim.y + threadIdx.y;
+
     weight_t * a;
     weight_t * b;
     weight_t * c;
-    
+
     /*case single block or column grid*/
     if (gridDim.x == 1) {
 
@@ -85,7 +85,7 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_X)(weight_t *dist, int n,
         }
 
     } else { /*case column grid or square grid*/
-        
+
         if (gridDim.y == 1) { /*line grid*/
             if (blockIdx.x == k_tile)
                 return;
@@ -100,12 +100,11 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_X)(weight_t *dist, int n,
             c = &dist[k_tile*GPU_TILE_DIM*n+blockIdx.x*GPU_TILE_DIM]; //Tkj
         }
 
-    }
-    
-    int row = tid / GPU_TILE_DIM;
-    int col = tid % GPU_TILE_DIM;
+    }   
 
-    a[tid] = MIN(a[tid], b[row*n+kk]+c[kk*n+col]);  
+    int row = tid / GPU_TILE_DIM;  // row-cal in the small square
+    int col = tid % GPU_TILE_DIM;
+    a[row*n+col] = MIN(a[row*n+col], b[row*n+kk]+c[kk*n+col]);
 }
 
 /*
@@ -176,29 +175,27 @@ graph_t *MAKE_KERNEL_NAME(_gpu, _tiled)(graph_t *graph)
     timer_stop(&transfer_timer);
 
     int tile_no = graph->nr_vertices / GPU_TILE_DIM;
-
     for (int kk=0;kk< tile_no;kk++) { // kk = K from the paper, be careful with sizes
-    
+
         //phase one
         dim3 block(GPU_TILE_DIM, GPU_TILE_DIM);
         dim3 grid1(1);
         for(int k=0;k<GPU_TILE_DIM;k++) {
-            GPU_KERNEL_NAME(_tiled_shmem)<<<grid1, block>>>(dist_gpu,graph->nr_vertices,k,kk);
+            GPU_KERNEL_NAME(_tiled_stage_X)<<<grid1, block>>>(dist_gpu,graph->nr_vertices,kk,k);
             cudaThreadSynchronize();
         }
 
         dim3 grid2(tile_no);
         dim3 grid3(1,tile_no);
         for(int k=0;k<GPU_TILE_DIM;k++) {
-            GPU_KERNEL_NAME(_tiled_shmem)<<<grid2, block>>>(dist_gpu,graph->nr_vertices,k,kk);
-            cudaThreadSynchronize();
-            GPU_KERNEL_NAME(_tiled_shmem)<<<grid3, block>>>(dist_gpu,graph->nr_vertices,k,kk);
+            GPU_KERNEL_NAME(_tiled_stage_X)<<<grid2, block>>>(dist_gpu,graph->nr_vertices,kk,k);
+            GPU_KERNEL_NAME(_tiled_stage_X)<<<grid3, block>>>(dist_gpu,graph->nr_vertices,kk,k);
             cudaThreadSynchronize();
         }
 
         dim3 grid4(tile_no,tile_no);
         for(int k=0;k<GPU_TILE_DIM;k++) {
-            GPU_KERNEL_NAME(_tiled_shmem)<<<grid4, block>>>(dist_gpu,graph->nr_vertices,k,kk);
+            GPU_KERNEL_NAME(_tiled_stage_X)<<<grid4, block>>>(dist_gpu,graph->nr_vertices,kk,k);
             cudaThreadSynchronize();
         }
 
@@ -214,7 +211,7 @@ graph_t *MAKE_KERNEL_NAME(_gpu, _tiled)(graph_t *graph)
     copy_graph_from_gpu(dist_gpu, graph);
     timer_stop(&transfer_timer);
     printf("Total transfer times: %lf s\n",
-           timer_elapsed_time(&transfer_timer));
+            timer_elapsed_time(&transfer_timer));
     return graph;
 }
 
