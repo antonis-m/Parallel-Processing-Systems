@@ -67,7 +67,7 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_1)(weight_t *dist, int n,
     weight_t * a;
     weight_t * b;
     weight_t * c;
-    /*signle block*/
+    /*single block*/
     a = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; // Tkk
     b = a;
     c = a;
@@ -165,8 +165,8 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_4)(weight_t *dist, int n,
  *  The tiled GPU kernel(s) using shared memory
  */ 
 __global__ void GPU_KERNEL_NAME(_tiled_shmem_stage_1)(weight_t *dist, int n,
-                                                      int k_tile)
-{
+                                                      int k_tile){
+
     int tid = threadIdx.x*blockDim.y + threadIdx.y;
 
     __shared__ weight_t  a [GPU_TILE_DIM * GPU_TILE_DIM];
@@ -198,8 +198,72 @@ __global__ void GPU_KERNEL_NAME(_tiled_shmem_stage_1)(weight_t *dist, int n,
 
 __global__ void GPU_KERNEL_NAME(_tiled_shmem_stage_2)(weight_t *dist, int n, int k_tile){
 
+    int tid = threadIdx.x*blockDim.y + threadIdx.y;
 
+    __shared__ weight_t  a[GPU_TILE_DIM * GPU_TILE_DIM];
+    __shared__ weight_t * b;
+    __shared__ weight_t  c[GPU_TILE_DIM * GPU_TILE_DIM];
+
+    /*column grid*/
+    if (blockIdx.y == k_tile)
+        return;
+   /* a = &dist[k_tile*GPU_TILE_DIM+blockIdx.y*GPU_TILE_DIM*n]; // Tik
+    b = a;
+    c = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; //Tkk
+   */
+
+    int row = tid / GPU_TILE_DIM;  // row-cal in the small square
+    int col = tid % GPU_TILE_DIM;
+
+    a[row*GPU_TILE_DIM+col] = dist[k_tile*GPU_TILE_DIM + blockIdx.y*GPU_TILE_DIM*n + row*n + col];
+    __syncthreads();
+    b=a;
+    c[row*GPU_TILE_DIM+col] = dist[k_tile*GPU_TILE_DIM + k_tile*GPU_TILE_DIM*n + row*n + col];
+    __syncthreads();
+    
+    for (int kk=0;kk<GPU_TILE_DIM;kk++) {
+        a[row*GPU_TILE_DIM+col] = MIN(a[row*GPU_TILE_DIM+col], b[row*GPU_TILE_DIM+kk]+c[kk*GPU_TILE_DIM+col]);
+        __syncthreads();
+    }
+      
+    dist[k_tile*GPU_TILE_DIM + blockIdx.y*GPU_TILE_DIM*n +row*n+col] = a[row*GPU_TILE_DIM + col] ;
+    __syncthreads(); 
 }
+
+__global__ void GPU_KERNEL_NAME(_tiled_shmem_stage_3)(weight_t *dist, int n, int k_tile){
+
+    int tid = threadIdx.x*blockDim.y + threadIdx.y;
+
+    __shared__  weight_t  a[GPU_TILE_DIM*GPU_TILE_DIM] ;
+    __shared__  weight_t  b[GPU_TILE_DIM*GPU_TILE_DIM];
+    __shared__  weight_t * c;
+
+    /*line grid*/
+    if (blockIdx.x == k_tile)
+        return;
+   /* a = &dist[k_tile*GPU_TILE_DIM*n+blockIdx.x*GPU_TILE_DIM]; //Tki
+    b = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; //Tkk
+    c = a;
+   */
+
+    int row = tid / GPU_TILE_DIM;  // row-cal in the small square
+    int col = tid % GPU_TILE_DIM;
+
+    a[row*GPU_TILE_DIM +col] = dist[k_tile*GPU_TILE_DIM*n + blockIdx.x*GPU_TILE_DIM +row*n + col];
+    __syncthreads();
+    b[row*GPU_TILE_DIM +col]= dist[k_tile*GPU_TILE_DIM + k_tile*GPU_TILE_DIM*n + row*n +col];
+    __syncthreads();
+    c=a;
+ 
+    for (int kk=0;kk<GPU_TILE_DIM;kk++) {
+        a[row*GPU_TILE_DIM+col] = MIN(a[row*GPU_TILE_DIM+col], b[row*GPU_TILE_DIM+kk]+c[kk*GPU_TILE_DIM+col]);
+        __syncthreads();
+    }
+
+    dist[k_tile*GPU_TILE_DIM*n + blockIdx.x*GPU_TILE_DIM +row*n + col] = a[row*GPU_TILE_DIM + col];
+    __syncthreads(); 
+}
+
 /*
  *  FILLME: Use different kernels for the different stages of the
  *  tiled FW computation
@@ -260,11 +324,13 @@ graph_t *MAKE_KERNEL_NAME(_gpu, _tiled)(graph_t *graph)
 
         //phase two
         dim3 grid2(1,tile_no);
-        GPU_KERNEL_NAME(_tiled_stage_2)<<<grid2, block>>>(dist_gpu,graph->nr_vertices,k);
+        //GPU_KERNEL_NAME(_tiled_stage_2)<<<grid2, block>>>(dist_gpu,graph->nr_vertices,k);
+        GPU_KERNEL_NAME(_tiled_shmem_stage_2)<<<grid2, block>>>(dist_gpu,graph->nr_vertices,k);        
         
         //phase three    
         dim3 grid3(tile_no);
         GPU_KERNEL_NAME(_tiled_stage_3)<<<grid3, block>>>(dist_gpu,graph->nr_vertices,k);
+        //GPU_KERNEL_NAME(_tiled_shmem_stage_3)<<<grid3, block>>>(dist_gpu,graph->nr_vertices,k);
 
         dim3 grid4(tile_no,tile_no);
         GPU_KERNEL_NAME(_tiled_stage_4)<<<grid4, block>>>(dist_gpu,graph->nr_vertices,k);
