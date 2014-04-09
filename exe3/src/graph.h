@@ -33,7 +33,7 @@ typedef struct graph_struct {
 #endif
 
 #ifndef GPU_TILE_DIM
-#   define GPU_TILE_DIM 32
+#   define GPU_TILE_DIM 16
 #endif
 
 /* Graph routines */
