@@ -216,8 +216,8 @@ graph_t *MAKE_KERNEL_NAME(_gpu, _tiled)(graph_t *graph)
             cudaThreadSynchronize();
         }
 
-        dim3 grid2(tile_no);
-        dim3 grid3(1,tile_no);
+        dim3 grid3(tile_no);
+        dim3 grid2(1,tile_no);
         for(int k=0;k<GPU_TILE_DIM;k++) {
             GPU_KERNEL_NAME(_tiled_stage_2)<<<grid2, block>>>(dist_gpu,graph->nr_vertices,kk,k);
             GPU_KERNEL_NAME(_tiled_stage_3)<<<grid3, block>>>(dist_gpu,graph->nr_vertices,kk,k);
