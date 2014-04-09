@@ -329,8 +329,8 @@ graph_t *MAKE_KERNEL_NAME(_gpu, _tiled)(graph_t *graph)
         
         //phase three    
         dim3 grid3(tile_no);
-        GPU_KERNEL_NAME(_tiled_stage_3)<<<grid3, block>>>(dist_gpu,graph->nr_vertices,k);
-        //GPU_KERNEL_NAME(_tiled_shmem_stage_3)<<<grid3, block>>>(dist_gpu,graph->nr_vertices,k);
+        //GPU_KERNEL_NAME(_tiled_stage_3)<<<grid3, block>>>(dist_gpu,graph->nr_vertices,k);
+        GPU_KERNEL_NAME(_tiled_shmem_stage_3)<<<grid3, block>>>(dist_gpu,graph->nr_vertices,k);
 
         dim3 grid4(tile_no,tile_no);
         GPU_KERNEL_NAME(_tiled_stage_4)<<<grid4, block>>>(dist_gpu,graph->nr_vertices,k);
