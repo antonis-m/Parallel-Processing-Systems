@@ -59,7 +59,7 @@ __global__ void GPU_KERNEL_NAME(_naive)(weight_t *dist, int n, int k)
 /*
  *  The tiled GPU kernel(s) using global memory
  */ 
-__global__ void GPU_KERNEL_NAME(_tiled_stage_X)(weight_t *dist, int n,
+__global__ void GPU_KERNEL_NAME(_tiled_stage_1)(weight_t *dist, int n,
         int k_tile, int kk)
 {
     int tid = threadIdx.x*blockDim.y + threadIdx.y;
@@ -67,40 +67,71 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_X)(weight_t *dist, int n,
     weight_t * a;
     weight_t * b;
     weight_t * c;
+    /*signle block*/
+    a = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; // Tkk
+    b = a;
+    c = a;
 
-    /*case single block or column grid*/
-    if (gridDim.x == 1) {
+    int row = tid / GPU_TILE_DIM;  // row-cal in the small square
+    int col = tid % GPU_TILE_DIM;
+    a[row*n+col] = MIN(a[row*n+col], b[row*n+kk]+c[kk*n+col]);
+}
 
-        /*signle block*/
-        if (gridDim.y == 1) {
-            a = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; // Tkk
-            b = a;
-            c = a;
-        } else { /*column grid*/
-            if (blockIdx.y == k_tile)
-                return;
-            a = &dist[k_tile*GPU_TILE_DIM+blockIdx.y*GPU_TILE_DIM*n]; // Tik
-            b = a;
-            c = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; //Tkk
-        }
 
-    } else { /*case column grid or square grid*/
+__global__ void GPU_KERNEL_NAME(_tiled_stage_2)(weight_t *dist, int n,
+        int k_tile, int kk)
+{
+    int tid = threadIdx.x*blockDim.y + threadIdx.y;
 
-        if (gridDim.y == 1) { /*line grid*/
-            if (blockIdx.x == k_tile)
-                return;
-            a = &dist[k_tile*GPU_TILE_DIM*n+blockIdx.x*GPU_TILE_DIM]; //Tki
-            b = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; //Tkk
-            c = a;
-        } else { /*square grid*/
-            if ((blockIdx.x == k_tile) || (blockIdx.y == k_tile))
-                return;
-            a = &dist[blockIdx.y*GPU_TILE_DIM*n+blockIdx.x*GPU_TILE_DIM]; //Tij
-            b = &dist[blockIdx.y*n*GPU_TILE_DIM+k_tile*GPU_TILE_DIM]; //Tik
-            c = &dist[k_tile*GPU_TILE_DIM*n+blockIdx.x*GPU_TILE_DIM]; //Tkj
-        }
+    weight_t * a;
+    weight_t * b;
+    weight_t * c;
+    /*column grid*/
+    if (blockIdx.y == k_tile)
+        return;
+    a = &dist[k_tile*GPU_TILE_DIM+blockIdx.y*GPU_TILE_DIM*n]; // Tik
+    b = a;
+    c = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; //Tkk
 
-    }   
+    int row = tid / GPU_TILE_DIM;  // row-cal in the small square
+    int col = tid % GPU_TILE_DIM;
+    a[row*n+col] = MIN(a[row*n+col], b[row*n+kk]+c[kk*n+col]);
+}
+
+__global__ void GPU_KERNEL_NAME(_tiled_stage_3)(weight_t *dist, int n,
+        int k_tile, int kk)
+{
+    int tid = threadIdx.x*blockDim.y + threadIdx.y;
+
+    weight_t * a;
+    weight_t * b;
+    weight_t * c;
+    /*line grid*/
+    if (blockIdx.x == k_tile)
+        return;
+    a = &dist[k_tile*GPU_TILE_DIM*n+blockIdx.x*GPU_TILE_DIM]; //Tki
+    b = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; //Tkk
+    c = a;
+    
+    int row = tid / GPU_TILE_DIM;  // row-cal in the small square
+    int col = tid % GPU_TILE_DIM;
+    a[row*n+col] = MIN(a[row*n+col], b[row*n+kk]+c[kk*n+col]);
+}
+
+__global__ void GPU_KERNEL_NAME(_tiled_stage_4)(weight_t *dist, int n,
+        int k_tile, int kk)
+{
+    int tid = threadIdx.x*blockDim.y + threadIdx.y;
+
+    weight_t * a;
+    weight_t * b;
+    weight_t * c;
+    /*square grid*/
+    if ((blockIdx.x == k_tile) || (blockIdx.y == k_tile))
+        return;
+    a = &dist[blockIdx.y*GPU_TILE_DIM*n+blockIdx.x*GPU_TILE_DIM]; //Tij
+    b = &dist[blockIdx.y*n*GPU_TILE_DIM+k_tile*GPU_TILE_DIM]; //Tik
+    c = &dist[k_tile*GPU_TILE_DIM*n+blockIdx.x*GPU_TILE_DIM]; //Tkj
 
     int row = tid / GPU_TILE_DIM;  // row-cal in the small square
     int col = tid % GPU_TILE_DIM;
@@ -181,21 +212,21 @@ graph_t *MAKE_KERNEL_NAME(_gpu, _tiled)(graph_t *graph)
         dim3 block(GPU_TILE_DIM, GPU_TILE_DIM);
         dim3 grid1(1);
         for(int k=0;k<GPU_TILE_DIM;k++) {
-            GPU_KERNEL_NAME(_tiled_stage_X)<<<grid1, block>>>(dist_gpu,graph->nr_vertices,kk,k);
+            GPU_KERNEL_NAME(_tiled_stage_1)<<<grid1, block>>>(dist_gpu,graph->nr_vertices,kk,k);
             cudaThreadSynchronize();
         }
 
         dim3 grid2(tile_no);
         dim3 grid3(1,tile_no);
         for(int k=0;k<GPU_TILE_DIM;k++) {
-            GPU_KERNEL_NAME(_tiled_stage_X)<<<grid2, block>>>(dist_gpu,graph->nr_vertices,kk,k);
-            GPU_KERNEL_NAME(_tiled_stage_X)<<<grid3, block>>>(dist_gpu,graph->nr_vertices,kk,k);
+            GPU_KERNEL_NAME(_tiled_stage_2)<<<grid2, block>>>(dist_gpu,graph->nr_vertices,kk,k);
+            GPU_KERNEL_NAME(_tiled_stage_3)<<<grid3, block>>>(dist_gpu,graph->nr_vertices,kk,k);
             cudaThreadSynchronize();
         }
 
         dim3 grid4(tile_no,tile_no);
         for(int k=0;k<GPU_TILE_DIM;k++) {
-            GPU_KERNEL_NAME(_tiled_stage_X)<<<grid4, block>>>(dist_gpu,graph->nr_vertices,kk,k);
+            GPU_KERNEL_NAME(_tiled_stage_4)<<<grid4, block>>>(dist_gpu,graph->nr_vertices,kk,k);
             cudaThreadSynchronize();
         }
 
