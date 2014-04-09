@@ -164,12 +164,42 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_4)(weight_t *dist, int n,
 /*
  *  The tiled GPU kernel(s) using shared memory
  */ 
-__global__ void GPU_KERNEL_NAME(_tiled_shmem_stage_X)(weight_t *dist, int n,
+__global__ void GPU_KERNEL_NAME(_tiled_shmem_stage_1)(weight_t *dist, int n,
                                                       int k_tile)
 {
-    // FILLME: tiled GPU kernel code using shared memory for stage X
+    int tid = threadIdx.x*blockDim.y + threadIdx.y;
+
+    __shared__ weight_t  a [GPU_TILE_DIM * GPU_TILE_DIM];
+    __shared__ weight_t  * b;
+    __shared__ weight_t  * c;
+
+    /*single block
+    a = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; // Tkk
+    b = a;
+    c = a;
+    */
+
+    int row = tid / GPU_TILE_DIM;  // row-cal in the small square
+    int col = tid % GPU_TILE_DIM;
+    
+    a[row*GPU_TILE_DIM + col] = dist[k_tile*GPU_TILE_DIM + k_tile*GPU_TILE_DIM*n + row*n + col];
+    b=a;
+    c=a; 
+    __syncthreads();
+ 
+    for (int kk =0;kk<GPU_TILE_DIM;kk++) { 
+        a[row*GPU_TILE_DIM+col] = MIN(a[row*GPU_TILE_DIM+col], b[row*GPU_TILE_DIM+kk]+c[kk*GPU_TILE_DIM+col]);
+        __syncthreads();
+    }
+
+    dist[k_tile*GPU_TILE_DIM + k_tile*GPU_TILE_DIM*n + row*n + col] = a[row*GPU_TILE_DIM + col] ;
+   
 }
 
+__global__ void GPU_KERNEL_NAME(_tiled_shmem_stage_2)(weight_t *dist, int n, int k_tile){
+
+
+}
 /*
  *  FILLME: Use different kernels for the different stages of the
  *  tiled FW computation
@@ -225,7 +255,8 @@ graph_t *MAKE_KERNEL_NAME(_gpu, _tiled)(graph_t *graph)
         //phase one
         dim3 block(GPU_TILE_DIM, GPU_TILE_DIM);
         dim3 grid1(1);
-        GPU_KERNEL_NAME(_tiled_stage_1)<<<grid1, block>>>(dist_gpu,graph->nr_vertices,k);
+        // GPU_KERNEL_NAME(_tiled_stage_1)<<<grid1, block>>>(dist_gpu,graph->nr_vertices,k);
+        GPU_KERNEL_NAME(_tiled_shmem_stage_1)<<<grid1, block>>>(dist_gpu,graph->nr_vertices,k);        
 
         //phase two
         dim3 grid2(1,tile_no);
