@@ -62,8 +62,6 @@ __global__ void GPU_KERNEL_NAME(_naive)(weight_t *dist, int n, int k)
 __global__ void GPU_KERNEL_NAME(_tiled_stage_1)(weight_t *dist, int n,
         int k_tile)
 {
-    int tid = threadIdx.x*blockDim.y + threadIdx.y;
-
     weight_t * a;
     weight_t * b;
     weight_t * c;
@@ -72,8 +70,8 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_1)(weight_t *dist, int n,
     b = a;
     c = a;
 
-    int row = tid / GPU_TILE_DIM;  // row-cal in the small square
-    int col = tid % GPU_TILE_DIM;
+    int row = threadIdx.x;  // row-cal in the small square
+    int col = threadIdx.y;
     
     for (int kk =0;kk<GPU_TILE_DIM;kk++) { 
         a[row*n+col] = MIN(a[row*n+col], b[row*n+kk]+c[kk*n+col]);
@@ -85,7 +83,6 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_1)(weight_t *dist, int n,
 __global__ void GPU_KERNEL_NAME(_tiled_stage_2)(weight_t *dist, int n,
         int k_tile)
 {
-    int tid = threadIdx.x*blockDim.y + threadIdx.y;
 
     weight_t * a;
     weight_t * b;
@@ -97,8 +94,8 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_2)(weight_t *dist, int n,
     b = a;
     c = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; //Tkk
 
-    int row = tid / GPU_TILE_DIM;  // row-cal in the small square
-    int col = tid % GPU_TILE_DIM;
+    int row = threadIdx.x;  // row-cal in the small square
+    int col = threadIdx.y;
     
     for (int kk=0;kk<GPU_TILE_DIM;kk++) {
         a[row*n+col] = MIN(a[row*n+col], b[row*n+kk]+c[kk*n+col]);
@@ -109,8 +106,6 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_2)(weight_t *dist, int n,
 __global__ void GPU_KERNEL_NAME(_tiled_stage_3)(weight_t *dist, int n,
         int k_tile)
 {
-    int tid = threadIdx.x*blockDim.y + threadIdx.y;
-
     weight_t * a;
     weight_t * b;
     weight_t * c;
@@ -121,8 +116,8 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_3)(weight_t *dist, int n,
     b = &dist[k_tile*GPU_TILE_DIM+k_tile*GPU_TILE_DIM*n]; //Tkk
     c = a;
 
-    int row = tid / GPU_TILE_DIM;  // row-cal in the small square
-    int col = tid % GPU_TILE_DIM;
+    int row = threadIdx.x;  // row-cal in the small square
+    int col = threadIdx.y;
 
     for (int kk=0;kk<GPU_TILE_DIM;kk++) {
         a[row*n+col] = MIN(a[row*n+col], b[row*n+kk]+c[kk*n+col]);
@@ -132,11 +127,9 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_3)(weight_t *dist, int n,
 __global__ void GPU_KERNEL_NAME(_tiled_stage_4)(weight_t *dist, int n,
         int k_tile)
 {
-    int tid = threadIdx.x*blockDim.y + threadIdx.y;
-
-    __shared__  weight_t * a;
-    __shared__  weight_t * b;
-    __shared__  weight_t * c;
+    weight_t * a;
+    weight_t * b;
+    weight_t * c;
     /*square grid*/
     if ((blockIdx.x == k_tile) || (blockIdx.y == k_tile))
         return;
@@ -144,8 +137,9 @@ __global__ void GPU_KERNEL_NAME(_tiled_stage_4)(weight_t *dist, int n,
     b = &dist[blockIdx.y*n*GPU_TILE_DIM+k_tile*GPU_TILE_DIM]; //Tik
     c = &dist[k_tile*GPU_TILE_DIM*n+blockIdx.x*GPU_TILE_DIM]; //Tkj
 
-    int row = tid / GPU_TILE_DIM;  // row-cal in the small square
-    int col = tid % GPU_TILE_DIM;
+    int row = threadIdx.x;  // row-cal in the small square
+    int col = threadIdx.y;
+    
     for (int kk=0;kk<GPU_TILE_DIM;kk++) {
         a[row*n+col] = MIN(a[row*n+col], b[row*n+kk]+c[kk*n+col]);
         __syncthreads();
