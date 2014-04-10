@@ -44,6 +44,8 @@ graph_t *copy_graph_from_gpu(const weight_t *dist_gpu, graph_t *graph)
  */ 
 __global__ void GPU_KERNEL_NAME(_naive)(weight_t *dist, int n, int k)
 {
+    /*
+    //version 1
     int tid = (blockDim.x*blockDim.y*blockIdx.x)+ // consider line grid
         (threadIdx.x*blockDim.y + threadIdx.y);   // and global order 
 
@@ -54,6 +56,15 @@ __global__ void GPU_KERNEL_NAME(_naive)(weight_t *dist, int n, int k)
     int col = tid % n;
 
     dist[tid] = MIN(dist[tid], dist[row*n+k]+dist[k*n+col]);  
+    */
+    //version 2
+    int row = blockIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if ((col*n + row)  > n*n)
+        return;
+
+    dist[row*n+col] = MIN(dist[row*n+col], dist[row*n+k]+dist[k*n+col]);  
 }
 
 /*
@@ -303,10 +314,20 @@ graph_t *MAKE_KERNEL_NAME(_gpu, _naive)(graph_t *graph)
     timer_start(&transfer_timer);
     weight_t *dist_gpu = copy_graph_to_gpu(graph);
     timer_stop(&transfer_timer);
-    
+   
+    /*
+    // version 1 gerneric but mod div 
     //init block and grid
     dim3 block(8,8);
     dim3 grid((graph->nr_vertices*graph->nr_vertices)/64); // this should change
+    */
+
+    //version 2 each line at least one block
+    //blocks will have vertical alignment in grid
+    int blocks_per_line = graph->nr_vertices / 512 + 1; // or 1024
+    
+    dim3 block(graph->nr_vertices > 512 ? 512 : graph->nr_vertices);
+    dim3 grid(blocks_per_line, graph->nr_vertices);
 
     //call the GPU kernel
     for(int k=0;k<graph->nr_vertices;k++) { //main loop
