@@ -1,0 +1,6 @@
+Implementation    Medges/sec
+omp-naive   6.289443 Medges/s
+omp-tiled   4.227413 Medges/s
+naive   8.010512 Medges/s
+tiled   23.781008 Medges/s
+shmem-tiled 45.992193 Medges/s
